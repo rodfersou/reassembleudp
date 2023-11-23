@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
+	// "crypto/sha256"
 	"fmt"
 	"math/big"
 	"os"
-	// "crypto/sha256"
 
+	"github.com/joho/godotenv"
 	"github.com/libp2p/go-reuseport"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-const proto, port = "udp", "6789"
 
 type Payload struct {
 	eof            int
@@ -25,11 +24,11 @@ type Payload struct {
 }
 
 func main() {
-	ctx := context.TODO()
-	uri := os.Getenv("MONGODB_URI")
-	if uri == "" {
-		uri = "mongodb://localhost:27017"
+	if err := godotenv.Load(); err != nil {
+		panic("No .env file found")
 	}
+	ctx := context.TODO()
+	uri := os.Getenv("MONGO_URI")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
@@ -55,7 +54,9 @@ func main() {
 		panic(err)
 	}
 
-	conn, err := reuseport.ListenPacket(proto, os.Getenv("IP")+":"+port)
+	proto := os.Getenv("PROTO")
+	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
+	conn, err := reuseport.ListenPacket(proto, addr)
 	if err != nil {
 		panic(err)
 	}
