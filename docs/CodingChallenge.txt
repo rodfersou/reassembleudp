@@ -1,0 +1,70 @@
+Programming Exercise
+
+You have been asked to build a server to reassemble UDP packets into N discrete messages. Design a persistent data model, typically a database table, that is shared across processes. Leverage the data model to store the fragments from which the completed message can be reassembled. Provide an implementation of the consumer/reassembly process. The output of the system should be the completed message number and its corresponding sha256 hash. If all fragments arrived, the hash should line up with the sha256 hash output by the emitter.
+In order to meet performance requirements, you will need to run 4 consumers concurrently. Each consumer will be listening for UDP communications over a single, shared port. Fragments delivered in the packet should be stored in the data model. If the completed message has not been received within 30 seconds, an error should be issued. The error should indicate which pieces of the specific message did not arrive.
+(eg. perhaps byte ranges 3-5 and 72-79 did not arrive).
+Your implementation should be fault-tolerant and no data loss should occur in the event of a crash or a restart. Provide a test harness that demonstrates the correct reassembly of messages using your consumer service. You should be able to demonstrate that your tests will run 10 times in a row without failures, excepting occasional UDP packet drops.
+The implementation may be written in any language using corresponding tech stacks, however, it is a requirement that 4 instantiations of your process run concurrently consuming data off the UDP port.
+Please include a readme describing the design of the implementation, how to execute the server, and any known deficiencies or limitations.
+Details
+Included is a node.js client program that will emit 10 messages of variable size on UDP port 6789 on the local loopback. The sha256 for each message is computed and output as follows:
+
+
+
+> node udp_emitter.js
+Emitting message #1 of size:1022990 sha256:ccdbc4c6d006e4b600f784e90534e72ab2c952d333e821ed6f0753690f30b6e5
+Emitting message #2 of size:196392 sha256:ffc846e16558fa7501f6deb71ee9c4e1d9db0eeb5421deadafbcd9e605f249e8
+Emitting message #3 of size:865334 sha256:7b60a643bbcecc48f5277f0c58006f0644e557e1fa25cee220142d04b18f0402
+Emitting message #4 of size:961815 sha256:c39d75497a7d9c7d758fec1bd98edf318f4819b06f185c80ab2b22b044b40b6c
+Emitting message #5 of size:470530 sha256:2c349e023f6536e874f2695b32c562680cd488520ea902b4134e4e417756b347
+Emitting message #6 of size:260786 sha256:98f7b66ba315e40f81a98c8072336ec360441c939f7f3328293ac677406486b2
+Emitting message #7 of size:435191 sha256:1cad3ba5b864c1905cbc1f841ce7465ddefc81f44fc2c627948efdecac1b5c3a
+Emitting message #8 of size:459077 sha256:d3644218d5d96c41f5cf18843adf71eb7dbbb4a9cdb2af1b310a8d8c53763f25
+Emitting message #9 of size:22273 sha256:fd428f2c7e7bec03811d595320b1ad69ee79e143710e8ae330616321bc64a4bf
+Emitting message #10 of size:1040129
+sha256:30a0022f6e89c4d28691ce15387201ffbbcc99f30773584d390c5984330557ef
+
+
+
+This program should run on any recent version of node.js. Each time the program is run, M random size messages are created, each with random data. The message is decomposed into N random size fragments, which are emitted in random order. Each packet containing a fragment is emitted twice, so the receiver should handle duplicate packets without error.
+The packet payload is as follows:
+
+
+
++---+---------------------------------+--------------------------------------+
+| 0 |             Flags               |              Data Size               |
+|EOF|       (15 bits unsigned)        |         (16 bits unsigned)           |
++---+---------------------------------+--------------------------------------+
+|                                   Offset                                   |
+|                             (32 bits unsigned)                             |
++----------------------------------------------------------------------------+
+|                                Transaction ID                              |
+|                             (32 bits unsigned)                             |
++----------------------------------------------------------------------------+
+|                                    Data                                    |
++----------------------------------------------------------------------------+
+|                             Data (continued...)                            |
++----------------------------------------------------------------------------+
+
+
+
+Example output is as follows:
+> node ./udp_server.js
+Message #1 length: 1022990 sha256:ccdbc4c6d006e4b600f784e90534e72ab2c952d333e821ed6f0753690f30b6e5
+Message #2 length: 196392 sha256:ffc846e16558fa7501f6deb71ee9c4e1d9db0eeb5421deadafbcd9e605f249e8
+Message #3 length: 865334 sha256:7b60a643bbcecc48f5277f0c58006f0644e557e1fa25cee220142d04b18f0402
+Message #4 length: 961815 sha256:c39d75497a7d9c7d758fec1bd98edf318f4819b06f185c80ab2b22b044b40b6c
+Message #5 length: 470530 sha256:2c349e023f6536e874f2695b32c562680cd488520ea902b4134e4e417756b347
+Message #6 length: 260786 sha256:98f7b66ba315e40f81a98c8072336ec360441c939f7f3328293ac677406486b2
+Message #7 Hole at: 66
+Message #7 Hole at: 2324
+Message #7 Hole at: 3722
+Message #7 Hole at: 4416
+Message #7 Hole at: 5490
+Message #7 Hole at: 9873
+Message #7 Hole at: 12500
+Message #7 Hole at: 16474
+Message #8 length: 459077 sha256:d3644218d5d96c41f5cf18843adf71eb7dbbb4a9cdb2af1b310a8d8c53763f25
+Message #9 length: 22273 sha256:fd428f2c7e7bec03811d595320b1ad69ee79e143710e8ae330616321bc64a4bf
+Message #10 length: 1040129 sha256:30a0022f6e89c4d28691ce15387201ffbbcc99f30773584d390c5984330557ef
+Feel free to examine the emitter code for details.
