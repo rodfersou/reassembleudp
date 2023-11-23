@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	// "crypto/sha256"
-	"fmt"
+	// "fmt"
 	"math/big"
 	"os"
 
@@ -42,18 +42,6 @@ func main() {
 	client.Database("reassembleudp").Drop(ctx)
 	coll := client.Database("reassembleudp").Collection("payloads")
 
-	index_model := mongo.IndexModel{
-		Keys: bson.D{
-			{"transaction_id", 1},
-			{"offset", 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-	_, err = coll.Indexes().CreateOne(ctx, index_model)
-	if err != nil {
-		panic(err)
-	}
-
 	proto := os.Getenv("PROTO")
 	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
 	conn, err := reuseport.ListenPacket(proto, addr)
@@ -71,23 +59,31 @@ func main() {
 		conn.WriteTo(buf, dst)
 
 		payload := createPayload(buf)
-		result, err := coll.InsertOne(ctx, bson.D{
-			{"eof", payload.eof},
-			{"flags", payload.flags},
-			{"data_size", payload.data_size},
-			{"offset", payload.offset},
-			{"transaction_id", payload.transaction_id},
-			{"data", payload.data},
-		})
+		_, err = coll.UpdateOne(
+			ctx,
+			bson.M{
+				"_id": payload.transaction_id,
+			},
+			bson.M{
+				"$addToSet": bson.M{
+					"payloads": bson.M{
+						"eof":    payload.eof,
+						"offset": payload.offset,
+						"data":   payload.data,
+					},
+				},
+			},
+			options.Update().SetUpsert(true),
+		)
 		if err != nil {
 			panic(err)
 		}
 		// fmt.Println(payload)
-		fmt.Println(result)
+		// fmt.Println(result)
 	}
 }
 
-func createPayload(buf []byte) Payload {
+func createPayload(buf []byte) *Payload {
 	payload := Payload{
 		flags:          int(big.NewInt(0).SetBytes([]byte{buf[0] & 127, buf[1]}).Uint64()),
 		data_size:      int(big.NewInt(0).SetBytes(buf[2:4]).Uint64()),
@@ -106,5 +102,5 @@ func createPayload(buf []byte) Payload {
 			payload.data[i] = int(n)
 		}
 	}
-	return payload
+	return &payload
 }
