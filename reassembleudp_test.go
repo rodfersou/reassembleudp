@@ -111,18 +111,18 @@ func TestCreatePayloadTransactionId(t *testing.T) {
 func TestCreatePayloadData(t *testing.T) {
     buf := make([]byte, 12)
     payload := createPayload(buf)
-    assert.Equal(t, payload.data, "")
+    assert.Equal(t, payload.data, []int{})
 
     // If buffer size is smaller than data_size, data is empty
     buf[3] = 3
     payload = createPayload(buf)
-    assert.Equal(t, payload.data, "")
+    assert.Equal(t, payload.data, []int{})
 
     buf = make([]byte, 12+3)
     buf[3] = 3
-    buf[12] = 102
-    buf[13] = 111
-    buf[14] = 111
+    buf[12] = 1
+    buf[13] = 2
+    buf[14] = 3
     payload = createPayload(buf)
-    assert.Equal(t, payload.data, "foo")
+    assert.Equal(t, payload.data, []int{1, 2, 3})
 }

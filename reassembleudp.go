@@ -39,6 +39,8 @@ func main() {
             panic(err)
         }
     }()
+    // TODO: Remove database drop
+    client.Database("reassembleudp").Drop(ctx)
     coll := client.Database("reassembleudp").Collection("payloads")
 
     index_model := mongo.IndexModel{
@@ -100,9 +102,8 @@ func createPayload(buf []byte) Payload {
     if len(buf) >= 12+payload.data_size {
         payload.data = make([]int, payload.data_size)
         for i, n := range buf[12 : 12+payload.data_size] {
-            payload.data[i] = int(big.NewInt(0).SetBytes([]byte{n}).Uint64())
+            payload.data[i] = int(n)
         }
-        // payload.data = buf[12 : 12+payload.data_size]
     }
     return payload
 }
