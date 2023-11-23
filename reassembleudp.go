@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	// "crypto/sha256"
-	// "fmt"
+	"fmt"
 	"math/big"
+	"net"
 	"os"
+	// "sync"
 
 	"github.com/joho/godotenv"
-	"github.com/libp2p/go-reuseport"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -27,6 +28,31 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		panic("No .env file found")
 	}
+
+	jobs := make(chan []byte, 100)
+	for i := 1; i <= 4; i++ {
+		go worker(i, jobs)
+	}
+
+	proto := os.Getenv("PROTO")
+	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
+	conn, err := net.ListenPacket(proto, addr)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 1024)
+	for {
+		_, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			panic(err)
+		}
+		jobs <- buf
+	}
+}
+
+func worker(id int, jobs <-chan []byte) {
 	ctx := context.TODO()
 	uri := os.Getenv("MONGO_URI")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
@@ -39,25 +65,22 @@ func main() {
 		}
 	}()
 	// TODO: Remove database drop
-	client.Database("reassembleudp").Drop(ctx)
-	coll := client.Database("reassembleudp").Collection("payloads")
+	// client.Database("reassembleudp").Drop(ctx)
+	coll := client.Database("reassembleudp").Collection("messages")
 
-	proto := os.Getenv("PROTO")
-	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
-	conn, err := reuseport.ListenPacket(proto, addr)
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
+	// index_model := mongo.IndexModel{
+	//     Keys: bson.D{
+	//         {"_id", 1},
+	//         {"payloads.offset", 1},
+	//     },
+	//     Options: options.Index().SetUnique(true),
+	// }
+	// _, err = coll.Indexes().CreateOne(ctx, index_model)
+	// if err != nil {
+	//     panic(err)
+	// }
 
-	buf := make([]byte, 1024)
-	for {
-		_, dst, err := conn.ReadFrom(buf)
-		if err != nil {
-			panic(err)
-		}
-		conn.WriteTo(buf, dst)
-
+	for buf := range jobs {
 		payload := createPayload(buf)
 		_, err = coll.UpdateOne(
 			ctx,
@@ -67,9 +90,10 @@ func main() {
 			bson.M{
 				"$addToSet": bson.M{
 					"payloads": bson.M{
-						"eof":    payload.eof,
-						"offset": payload.offset,
-						"data":   payload.data,
+						"offset":    payload.offset,
+						"data_size": payload.data_size,
+						"eof":       payload.eof,
+						"data":      payload.data,
 					},
 				},
 			},
@@ -78,7 +102,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		// fmt.Println(payload)
+		fmt.Println(
+			"Inserting message: ",
+			id,
+			payload.transaction_id,
+			payload.offset,
+			payload.data_size,
+			payload.eof,
+			// buf[:13],
+		)
 		// fmt.Println(result)
 	}
 }
