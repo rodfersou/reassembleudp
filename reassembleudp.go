@@ -42,7 +42,7 @@ func main() {
 		}
 	}()
 	// TODO: Remove database drop
-	client.Database("reassembleudp").Drop(ctx)
+	// client.Database("reassembleudp").Drop(ctx)
 	coll := client.Database("reassembleudp").Collection("payloads")
 
 	index_model := mongo.IndexModel{
@@ -83,56 +83,16 @@ func create_pool(conn net.PacketConn, coll *mongo.Collection, ctx context.Contex
 }
 
 func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
-	inserts := make(chan *Payload, 1024)
-	go db_inserter(id, coll, ctx, inserts)
+	payloads := make(chan *Payload, 1024)
+	go db_inserter(id, coll, ctx, payloads)
 	buf := make([]byte, 1024)
 	for {
 		_, _, err := conn.ReadFrom(buf)
 		if err != nil {
 			panic(err)
 		}
-		inserts <- createPayload(buf)
+		payloads <- createPayload(buf)
 	}
-}
-
-func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan *Payload) {
-	models := make([]mongo.WriteModel, 1024)
-	i := 0
-	for payload := range inserts {
-		models[i] = mongo.NewInsertOneModel().SetDocument(
-			bson.M{
-				"transaction_id": payload.transaction_id,
-				"offset":         payload.offset,
-				"data_size":      payload.data_size,
-				"eof":            payload.eof,
-				"data":           payload.data,
-			},
-		)
-
-		i++
-		if i == 1024 {
-			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println(
-				id,
-				" Inserting! ",
-				len(models),
-			)
-			i = 0
-			models = make([]mongo.WriteModel, 1024)
-		}
-	}
-	_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(
-		id,
-		" Inserting! ",
-		len(models),
-	)
 }
 
 func createPayload(buf []byte) *Payload {
@@ -155,4 +115,52 @@ func createPayload(buf []byte) *Payload {
 		}
 	}
 	return &payload
+}
+
+func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *Payload) {
+	models := make([]mongo.WriteModel, 1024)
+	i := 0
+	tid := 1
+	defer func() {
+		_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
+		if err != nil {
+			panic(err)
+		}
+		// fmt.Println(
+		//  id,
+		//  " Inserting! ",
+		//  len(models),
+		// )
+		fmt.Println("Last transaction ", tid)
+	}()
+	for payload := range payloads {
+		models[i] = mongo.NewInsertOneModel().SetDocument(
+			bson.M{
+				"transaction_id": payload.transaction_id,
+				"offset":         payload.offset,
+				"data_size":      payload.data_size,
+				"eof":            payload.eof,
+				"data":           payload.data,
+			},
+		)
+
+		i++
+		if i == 1024 {
+			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
+			if err != nil {
+				panic(err)
+			}
+			if payload.transaction_id != tid {
+				fmt.Println("Finished transactions from ", tid, "to ", payload.transaction_id-1)
+				tid = payload.transaction_id
+			}
+			// fmt.Println(
+			//  id,
+			//  " Inserting! ",
+			//  len(models),
+			// )
+			i = 0
+			models = make([]mongo.WriteModel, 1024)
+		}
+	}
 }
