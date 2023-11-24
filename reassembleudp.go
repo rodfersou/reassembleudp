@@ -78,6 +78,19 @@ func main() {
 	wg.Wait()
 }
 
+func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
+	inserts := make(chan *Payload, 1024)
+	go db_inserter(id, coll, ctx, inserts)
+	buf := make([]byte, 1024)
+	for {
+		_, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			panic(err)
+		}
+		inserts <- createPayload(buf)
+	}
+}
+
 func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan *Payload) {
 	models := make([]mongo.WriteModel, 1024)
 	i := 0
@@ -117,19 +130,6 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-
 		" Inserting! ",
 		len(models),
 	)
-}
-
-func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
-	inserts := make(chan *Payload, 1024)
-	go db_inserter(id, coll, ctx, inserts)
-	buf := make([]byte, 1024)
-	for {
-		_, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			panic(err)
-		}
-		inserts <- createPayload(buf)
-	}
 }
 
 func createPayload(buf []byte) *Payload {
