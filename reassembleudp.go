@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	// "reflect"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -42,20 +43,20 @@ func main() {
 		}
 	}()
 	// TODO: Remove database drop
-	// client.Database("reassembleudp").Drop(ctx)
-	coll := client.Database("reassembleudp").Collection("messages")
+	client.Database("reassembleudp").Drop(ctx)
+	coll := client.Database("reassembleudp").Collection("payloads")
 
-	// index_model := mongo.IndexModel{
-	//     Keys: bson.D{
-	//         {"_id", 1},
-	//         {"payloads.offset", 1},
-	//     },
-	//     Options: options.Index().SetUnique(true),
-	// }
-	// _, err = coll.Indexes().CreateOne(ctx, index_model)
-	// if err != nil {
-	//     panic(err)
-	// }
+	index_model := mongo.IndexModel{
+		Keys: bson.M{
+			"transaction_id": 1,
+			"offset":         1,
+		},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err = coll.Indexes().CreateOne(ctx, index_model)
+	if err != nil {
+		panic(err)
+	}
 
 	proto := os.Getenv("PROTO")
 	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
@@ -77,27 +78,51 @@ func main() {
 	wg.Wait()
 }
 
-func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan []mongo.WriteModel) {
-	for models := range inserts {
-		_, err := coll.BulkWrite(ctx, models)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(
-			id,
-			" Inserting! ",
-			len(models),
+func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan *Payload) {
+	models := make([]mongo.WriteModel, 1024)
+	i := 0
+	for payload := range inserts {
+		models[i] = mongo.NewInsertOneModel().SetDocument(
+			bson.M{
+				"transaction_id": payload.transaction_id,
+				"offset":         payload.offset,
+				"data_size":      payload.data_size,
+				"eof":            payload.eof,
+				"data":           payload.data,
+			},
 		)
+
+		i++
+		if i == 1024 {
+			_, err := coll.BulkWrite(ctx, models)
+			if err != nil {
+				// Duplicates
+				// panic(err)
+			}
+			fmt.Println(
+				id,
+				" Inserting! ",
+				len(models),
+			)
+			i = 0
+			models = make([]mongo.WriteModel, 1024)
+		}
 	}
+	_, err := coll.BulkWrite(ctx, models)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(
+		id,
+		" Inserting! ",
+		len(models),
+	)
 }
 
 func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
-	// inserts := make(chan mongo.WriteModel, 1024*1024)
-	inserts := make(chan []mongo.WriteModel, 1024)
+	inserts := make(chan *Payload, 1024)
 	go db_inserter(id, coll, ctx, inserts)
 	buf := make([]byte, 1024)
-	models := make([]mongo.WriteModel, 1024)
-	i := 0
 	for {
 		_, _, err := conn.ReadFrom(buf)
 		if err != nil {
@@ -105,42 +130,7 @@ func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Con
 		}
 		payload := createPayload(buf)
 
-		models[i] = mongo.NewUpdateOneModel().SetFilter(
-			bson.M{
-				"_id": payload.transaction_id,
-			},
-		).SetUpdate(
-			bson.M{
-				"$addToSet": bson.M{
-					"payloads": bson.M{
-						"offset":    payload.offset,
-						"data_size": payload.data_size,
-						"eof":       payload.eof,
-						"data":      payload.data,
-					},
-				},
-			},
-		).SetUpsert(
-			true,
-		)
-
-		i++
-		if i == 1024 {
-			i = 0
-			inserts <- models
-		}
-
-		// inserts <- payload
-
-		fmt.Println(
-			"======> ",
-			id,
-			payload.transaction_id,
-			// payload.offset,
-			// payload.data_size,
-			// payload.eof,
-			// buf[:13],
-		)
+		inserts <- payload
 	}
 }
 
