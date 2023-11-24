@@ -95,7 +95,62 @@ func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Con
 	}
 }
 
+// var visited = make(map[int]bool)
+func validateDbMessage(id int, coll *mongo.Collection, ctx context.Context, transactionIds <-chan int) {
+	for transactionId := range transactionIds {
+		// _, ok := visited[transactionId]
+		// if ok {
+		//     continue
+		// }
+		// visited[transactionId] = true
+		cursor, err := coll.Find(
+			ctx,
+			bson.M{
+				"transaction_id": transactionId,
+			},
+			options.Find().SetSort(
+				bson.D{
+					{"transaction_id", 1},
+					{"offset", 1},
+				},
+			),
+		)
+		if err != nil {
+			panic(err)
+		}
+		var payloads []Payload
+		if err = cursor.All(ctx, &payloads); err != nil {
+			panic(err)
+		}
+
+		holes := validateMessage(payloads)
+		if len(holes) == 0 {
+			message := reassembleMessage(payloads)
+			hash := hashMessage(message)
+			fmt.Println(
+				"Message #",
+				transactionId,
+				" length: ",
+				len(message),
+				" sha256:",
+				hash,
+			)
+		} else {
+			for _, hole := range holes {
+				fmt.Println(
+					"Message #",
+					transactionId,
+					" Hole at: ",
+					hole,
+				)
+			}
+		}
+	}
+}
+
 func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *Payload) {
+	transactionIds := make(chan int, 1024)
+	go validateDbMessage(id, coll, ctx, transactionIds)
 	models := make([]mongo.WriteModel, 1024)
 	i := 0
 	tid := 1
@@ -112,7 +167,9 @@ func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-
 				panic(err)
 			}
 			if payload.TransactionId != tid {
-				fmt.Println("Finished transactions from ", tid, "to ", payload.TransactionId-1)
+				for i := tid; i < payload.TransactionId; i++ {
+					transactionIds <- i
+				}
 				tid = payload.TransactionId
 			}
 			i = 0
