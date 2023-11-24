@@ -111,10 +111,9 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-
 
 		i++
 		if i == 1024 {
-			_, err := coll.BulkWrite(ctx, models)
+			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
 			if err != nil {
-				// Duplicates
-				// panic(err)
+				panic(err)
 			}
 			fmt.Println(
 				id,
@@ -125,7 +124,7 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-
 			models = make([]mongo.WriteModel, 1024)
 		}
 	}
-	_, err := coll.BulkWrite(ctx, models)
+	_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
 	if err != nil {
 		panic(err)
 	}
