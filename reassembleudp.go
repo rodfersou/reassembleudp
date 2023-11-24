@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
-	// "sync"
+	"sync"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,11 +28,7 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		panic("No .env file found")
 	}
-
-	jobs := make(chan []byte, 100)
-	for i := 1; i <= 4; i++ {
-		go worker(i, jobs)
-	}
+	var wg sync.WaitGroup
 
 	proto := os.Getenv("PROTO")
 	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
@@ -41,18 +37,20 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
+	// fmt.Println(reflect.TypeOf(conn))
 
-	buf := make([]byte, 1024)
-	for {
-		_, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			panic(err)
-		}
-		jobs <- buf
+	for i := 1; i <= 4; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+			worker(i, conn)
+		}()
 	}
+	wg.Wait()
 }
 
-func worker(id int, jobs <-chan []byte) {
+func worker(id int, conn net.PacketConn) {
 	ctx := context.TODO()
 	uri := os.Getenv("MONGO_URI")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
@@ -80,7 +78,12 @@ func worker(id int, jobs <-chan []byte) {
 	//     panic(err)
 	// }
 
-	for buf := range jobs {
+	buf := make([]byte, 1024)
+	for {
+		_, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			panic(err)
+		}
 		payload := createPayload(buf)
 		_, err = coll.UpdateOne(
 			ctx,
