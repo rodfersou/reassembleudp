@@ -44,18 +44,16 @@ func main() {
 			panic(err)
 		}
 	}()
-	// TODO: Remove database drop
-	// client.Database("reassembleudp").Drop(ctx)
 	coll := client.Database("reassembleudp").Collection("payloads")
 
-	index_model := mongo.IndexModel{
+	indexModel := mongo.IndexModel{
 		Keys: bson.D{
 			{"transaction_id", 1},
 			{"offset", 1},
 		},
 		Options: options.Index().SetUnique(true),
 	}
-	_, err = coll.Indexes().CreateOne(ctx, index_model)
+	_, err = coll.Indexes().CreateOne(ctx, indexModel)
 	if err != nil {
 		panic(err)
 	}
@@ -68,10 +66,10 @@ func main() {
 	}
 	defer conn.Close()
 
-	create_pool(conn, coll, ctx)
+	createPool(conn, coll, ctx)
 }
 
-func create_pool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
+func createPool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
 	var wg sync.WaitGroup
 	for i := 1; i <= 4; i++ {
 		wg.Add(1)
@@ -86,7 +84,7 @@ func create_pool(conn net.PacketConn, coll *mongo.Collection, ctx context.Contex
 
 func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
 	payloads := make(chan *Payload, 1024)
-	go db_inserter(id, coll, ctx, payloads)
+	go dbInserter(id, coll, ctx, payloads)
 	buf := make([]byte, 1024)
 	for {
 		_, _, err := conn.ReadFrom(buf)
@@ -97,7 +95,7 @@ func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Con
 	}
 }
 
-func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *Payload) {
+func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *Payload) {
 	models := make([]mongo.WriteModel, 1024)
 	i := 0
 	tid := 1
@@ -133,17 +131,21 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <
 
 func createPayload(buf []byte) *Payload {
 	payload := Payload{
+		// Ignore first bit for Flags
 		Flags:         int(big.NewInt(0).SetBytes([]byte{buf[0] & 127, buf[1]}).Uint64()),
 		DataSize:      int(big.NewInt(0).SetBytes(buf[2:4]).Uint64()),
 		Offset:        int(big.NewInt(0).SetBytes(buf[4:8]).Uint64()),
 		TransactionId: int(big.NewInt(0).SetBytes(buf[8:12]).Uint64()),
 		CreatedAt:     time.Now(),
 	}
+	// Eof is the first bit
 	if buf[0]&128 == 128 {
 		payload.Eof = 1
 	} else {
 		payload.Eof = 0
 	}
+
+	// Convert Data []byte to []int for easy lookup at DB
 	payload.Data = []int{}
 	if len(buf) >= 12+payload.DataSize {
 		payload.Data = make([]int, payload.DataSize)
@@ -151,21 +153,29 @@ func createPayload(buf []byte) *Payload {
 			payload.Data[i] = int(n)
 		}
 	}
+
 	return &payload
 }
 
 func validateMessage(payloads []Payload) []int {
+	// Empty payload list return hole in index 0
 	if len(payloads) == 0 {
 		return []int{0}
 	}
+
+	// Create a map for easy lookup of offsets
 	mapOffset := make(map[int]Payload)
 	for _, item := range payloads {
 		mapOffset[item.Offset] = item
 	}
 
+	// Map is unsorted
 	keys := maps.Keys(mapOffset)
 	sort.Ints(keys[:])
 
+	// Starting the loop from the second item
+	// comparing 2 in 2 items and keep track of holes
+	// in the message
 	holes := make([]int, 0)
 	for i := 1; i < len(keys); i++ {
 		one := mapOffset[keys[i-1]]
@@ -174,16 +184,20 @@ func validateMessage(payloads []Payload) []int {
 			holes = append(holes, one.Offset+one.DataSize)
 		}
 	}
+
+	// Last fragment need to be Eof
 	last := mapOffset[keys[len(keys)-1]]
 	if last.Eof != 1 {
 		holes = append(holes, last.Offset+last.DataSize)
 	}
+
 	return holes
 }
 
 func reassembleMessage(payloads []Payload) []byte {
 	message := make([]byte, 0)
 	for _, payload := range payloads {
+		// Convert array of int back to array of byte
 		data := make([]byte, payload.DataSize)
 		for i, n := range payload.Data {
 			data[i] = byte(n)
