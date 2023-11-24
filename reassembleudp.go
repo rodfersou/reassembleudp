@@ -183,5 +183,21 @@ func validateMessage(payloads []Payload) []int {
 			holes = append(holes, one.Offset+one.DataSize)
 		}
 	}
+	last := mapOffset[keys[len(keys)-1]]
+	if last.Eof != 1 {
+		holes = append(holes, last.Offset+last.DataSize)
+	}
 	return holes
+}
+
+func reassembleMessage(payloads []Payload) []byte {
+	message := make([]byte, 0)
+	for _, payload := range payloads {
+		data := make([]byte, payload.DataSize)
+		for i, n := range payload.Data {
+			data[i] = byte(n)
+		}
+		message = append(message, data[:]...)
+	}
+	return message
 }

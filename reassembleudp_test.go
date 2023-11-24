@@ -149,6 +149,15 @@ func TestValidateInvalidMessage(t *testing.T) {
 	assert.Equal(t, holes, []int{673})
 }
 
+func TestValidateLastNotEofMessage(t *testing.T) {
+	content, _ := ioutil.ReadFile("./fixtures/last_not_eof.json")
+	var payloads []Payload
+	json.Unmarshal(content, &payloads)
+
+	holes := validateMessage(payloads)
+	assert.Equal(t, holes, []int{487663})
+}
+
 func TestValidateEmptyMessage(t *testing.T) {
 	content, _ := ioutil.ReadFile("./fixtures/empty.json")
 	var payloads []Payload
@@ -156,4 +165,28 @@ func TestValidateEmptyMessage(t *testing.T) {
 
 	holes := validateMessage(payloads)
 	assert.Equal(t, holes, []int{0})
+}
+
+func TestReassembleMessage(t *testing.T) {
+	p1 := Payload{
+		Offset:   0,
+		DataSize: 3,
+		Eof:      0,
+		Data:     []int{0, 1, 2},
+	}
+	p2 := Payload{
+		Offset:   3,
+		DataSize: 2,
+		Eof:      0,
+		Data:     []int{3, 4},
+	}
+	p3 := Payload{
+		Offset:   5,
+		DataSize: 3,
+		Eof:      1,
+		Data:     []int{5, 6, 7},
+	}
+	payloads := []Payload{p1, p2, p3}
+	message := reassembleMessage(payloads)
+	assert.Equal(t, message, []byte{0, 1, 2, 3, 4, 5, 6, 7})
 }
