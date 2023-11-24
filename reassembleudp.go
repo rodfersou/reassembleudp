@@ -4,11 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"math/big"
 	"net"
 	"os"
-	// "reflect"
-	"golang.org/x/exp/maps"
 	"sort"
 	"sync"
 
@@ -66,7 +65,6 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
-	// fmt.Println(reflect.TypeOf(conn))
 
 	create_pool(conn, coll, ctx)
 }
@@ -117,11 +115,6 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <
 				fmt.Println("Finished transactions from ", tid, "to ", payload.TransactionId-1)
 				tid = payload.TransactionId
 			}
-			// fmt.Println(
-			//  id,
-			//  " Inserting! ",
-			//  len(models),
-			// )
 			i = 0
 			models = make([]mongo.WriteModel, 1024)
 		}
@@ -132,11 +125,6 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <
 		if err != nil {
 			panic(err)
 		}
-		// fmt.Println(
-		//  id,
-		//  " Inserting! ",
-		//  len(models),
-		// )
 		fmt.Println("Last transaction ", tid)
 	}
 }
