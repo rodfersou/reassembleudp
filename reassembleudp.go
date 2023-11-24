@@ -77,13 +77,39 @@ func main() {
 	wg.Wait()
 }
 
-func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan *Payload) {
-	for payload := range inserts {
-		_, err := coll.UpdateOne(
-			ctx,
+func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan []mongo.WriteModel) {
+	for models := range inserts {
+		_, err := coll.BulkWrite(ctx, models)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(
+			id,
+			" Inserting! ",
+			len(models),
+		)
+	}
+}
+
+func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
+	// inserts := make(chan mongo.WriteModel, 1024*1024)
+	inserts := make(chan []mongo.WriteModel, 1024)
+	go db_inserter(id, coll, ctx, inserts)
+	buf := make([]byte, 1024)
+	models := make([]mongo.WriteModel, 1024)
+	i := 0
+	for {
+		_, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			panic(err)
+		}
+		payload := createPayload(buf)
+
+		models[i] = mongo.NewUpdateOneModel().SetFilter(
 			bson.M{
 				"_id": payload.transaction_id,
 			},
+		).SetUpdate(
 			bson.M{
 				"$addToSet": bson.M{
 					"payloads": bson.M{
@@ -94,37 +120,20 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-
 					},
 				},
 			},
-			options.Update().SetUpsert(true),
+		).SetUpsert(
+			true,
 		)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(
-			"====> ",
-			id,
-			payload.transaction_id,
-			// payload.offset,
-			// payload.data_size,
-			// payload.eof,
-			// buf[:13],
-		)
-		// fmt.Println(result)
-	}
-}
 
-func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
-	inserts := make(chan *Payload, 1024*1024)
-	go db_inserter(id, coll, ctx, inserts)
-	buf := make([]byte, 1024)
-	for {
-		_, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			panic(err)
+		i++
+		if i == 1024 {
+			i = 0
+			inserts <- models
 		}
-		payload := createPayload(buf)
-		inserts <- payload
+
+		// inserts <- payload
+
 		fmt.Println(
-			"=> ",
+			"======> ",
 			id,
 			payload.transaction_id,
 			// payload.offset,
