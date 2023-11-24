@@ -4,6 +4,7 @@ pkgs.mkShell {
     packages = [
         (python311.withPackages(ps: with ps; [
             supervisor
+            pymongo
         ]))
         go_1_20
         nodejs-19_x

@@ -17,12 +17,12 @@ import (
 )
 
 type Payload struct {
-	TransactionId int   `bson:"transaction_id"`
-	Offset        int   `bson:"offset"`
-	DataSize      int   `bson:"data_size"`
-	Eof           int   `bson:"eof"`
-	Flags         int   `bson:"flags"`
-	Data          []int `bson:"data"`
+	TransactionId int   `bson:"transaction_id" json:"transaction_id"`
+	Offset        int   `bson:"offset"         json:"offset"`
+	DataSize      int   `bson:"data_size"      json:"data_size"`
+	Eof           int   `bson:"eof"            json:"eof"`
+	Flags         int   `bson:"flags"          json:"flags"`
+	Data          []int `bson:"data"           json:"data"`
 }
 
 func main() {
@@ -106,6 +106,7 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <
 
 		i++
 		if i == 1024 {
+			// Unordered Bulk inserts skip duplicates when the unique index raise error
 			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
 			if err != nil {
 				panic(err)
@@ -124,6 +125,7 @@ func db_inserter(id int, coll *mongo.Collection, ctx context.Context, payloads <
 		}
 	}
 	if i > 0 {
+		// Unordered Bulk inserts skip duplicates when the unique index raise error
 		_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
 		if err != nil {
 			panic(err)
