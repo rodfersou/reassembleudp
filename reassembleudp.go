@@ -30,27 +30,6 @@ func main() {
 	}
 	var wg sync.WaitGroup
 
-	proto := os.Getenv("PROTO")
-	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
-	conn, err := net.ListenPacket(proto, addr)
-	if err != nil {
-		panic(err)
-	}
-	defer conn.Close()
-	// fmt.Println(reflect.TypeOf(conn))
-
-	for i := 1; i <= 4; i++ {
-		wg.Add(1)
-		i := i
-		go func() {
-			defer wg.Done()
-			worker(i, conn)
-		}()
-	}
-	wg.Wait()
-}
-
-func worker(id int, conn net.PacketConn) {
 	ctx := context.TODO()
 	uri := os.Getenv("MONGO_URI")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
@@ -78,14 +57,29 @@ func worker(id int, conn net.PacketConn) {
 	//     panic(err)
 	// }
 
-	buf := make([]byte, 1024)
-	for {
-		_, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			panic(err)
-		}
-		payload := createPayload(buf)
-		_, err = coll.UpdateOne(
+	proto := os.Getenv("PROTO")
+	addr := os.Getenv("IP") + ":" + os.Getenv("PORT")
+	conn, err := net.ListenPacket(proto, addr)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	// fmt.Println(reflect.TypeOf(conn))
+
+	for i := 1; i <= 4; i++ {
+		wg.Add(1)
+		i := i
+		go func() {
+			defer wg.Done()
+			worker(i, conn, coll, ctx)
+		}()
+	}
+	wg.Wait()
+}
+
+func db_inserter(id int, coll *mongo.Collection, ctx context.Context, inserts <-chan *Payload) {
+	for payload := range inserts {
+		_, err := coll.UpdateOne(
 			ctx,
 			bson.M{
 				"_id": payload.transaction_id,
@@ -106,15 +100,38 @@ func worker(id int, conn net.PacketConn) {
 			panic(err)
 		}
 		fmt.Println(
-			"Inserting message: ",
+			"====> ",
 			id,
 			payload.transaction_id,
-			payload.offset,
-			payload.data_size,
-			payload.eof,
+			// payload.offset,
+			// payload.data_size,
+			// payload.eof,
 			// buf[:13],
 		)
 		// fmt.Println(result)
+	}
+}
+
+func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
+	inserts := make(chan *Payload, 1024*1024)
+	go db_inserter(id, coll, ctx, inserts)
+	buf := make([]byte, 1024)
+	for {
+		_, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			panic(err)
+		}
+		payload := createPayload(buf)
+		inserts <- payload
+		fmt.Println(
+			"=> ",
+			id,
+			payload.transaction_id,
+			// payload.offset,
+			// payload.data_size,
+			// payload.eof,
+			// buf[:13],
+		)
 	}
 }
 
