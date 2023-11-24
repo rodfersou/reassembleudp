@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	// "reflect"
+	"golang.org/x/exp/maps"
+	"sort"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -159,4 +161,27 @@ func createPayload(buf []byte) *Payload {
 		}
 	}
 	return &payload
+}
+
+func validateMessage(payloads []Payload) []int {
+	if len(payloads) == 0 {
+		return []int{0}
+	}
+	mapOffset := make(map[int]Payload)
+	for _, item := range payloads {
+		mapOffset[item.Offset] = item
+	}
+
+	keys := maps.Keys(mapOffset)
+	sort.Ints(keys[:])
+
+	holes := make([]int, 0)
+	for i := 1; i < len(keys); i++ {
+		one := mapOffset[keys[i-1]]
+		two := mapOffset[keys[i]]
+		if one.Offset+one.DataSize != two.Offset {
+			holes = append(holes, one.Offset+one.DataSize)
+		}
+	}
+	return holes
 }

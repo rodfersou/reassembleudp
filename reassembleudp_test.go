@@ -1,8 +1,12 @@
 package main
 
 import (
-	"github.com/stretchr/testify/assert"
+	"encoding/json"
+	// "fmt"
+	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCreatePayloadEOF(t *testing.T) {
@@ -125,4 +129,31 @@ func TestCreatePayloadData(t *testing.T) {
 	buf[14] = 3
 	payload = createPayload(buf)
 	assert.Equal(t, payload.Data, []int{1, 2, 3})
+}
+
+func TestValidateMessage(t *testing.T) {
+	content, _ := ioutil.ReadFile("./fixtures/valid.json")
+	var payloads []Payload
+	json.Unmarshal(content, &payloads)
+
+	holes := validateMessage(payloads)
+	assert.Equal(t, holes, []int{})
+}
+
+func TestValidateInvalidMessage(t *testing.T) {
+	content, _ := ioutil.ReadFile("./fixtures/invalid.json")
+	var payloads []Payload
+	json.Unmarshal(content, &payloads)
+
+	holes := validateMessage(payloads)
+	assert.Equal(t, holes, []int{673})
+}
+
+func TestValidateEmptyMessage(t *testing.T) {
+	content, _ := ioutil.ReadFile("./fixtures/empty.json")
+	var payloads []Payload
+	json.Unmarshal(content, &payloads)
+
+	holes := validateMessage(payloads)
+	assert.Equal(t, holes, []int{0})
 }

@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 import json
-import random
+
 
 for i in [1, 10, 100, 1000]:
     client = MongoClient('mongodb://localhost:27017/')
