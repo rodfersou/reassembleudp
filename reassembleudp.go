@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	// "crypto/sha256"
+	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"net"
@@ -200,4 +200,9 @@ func reassembleMessage(payloads []Payload) []byte {
 		message = append(message, data[:]...)
 	}
 	return message
+}
+
+func hashMessage(message []byte) string {
+	hash := fmt.Sprintf("%x", sha256.Sum256(message))
+	return hash
 }

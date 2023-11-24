@@ -190,3 +190,18 @@ func TestReassembleMessage(t *testing.T) {
 	message := reassembleMessage(payloads)
 	assert.Equal(t, message, []byte{0, 1, 2, 3, 4, 5, 6, 7})
 }
+
+func TestHashMessage(t *testing.T) {
+	message := []byte{0, 1, 2, 3, 4, 5, 6, 7}
+	hash := hashMessage(message)
+	assert.Equal(t, hash, "8a851ff82ee7048ad09ec3847f1ddf44944104d2cbd17ef4e3db22c6785a0d45")
+}
+
+func TestHashValidMessage(t *testing.T) {
+	content, _ := ioutil.ReadFile("./fixtures/valid.json")
+	var payloads []Payload
+	json.Unmarshal(content, &payloads)
+	message := reassembleMessage(payloads)
+	hash := hashMessage(message)
+	assert.Equal(t, hash, "95e0d042cadb1106b944b49ae05097a8afd4aabd652a64cdfbc6d2f71c7090f2")
+}
