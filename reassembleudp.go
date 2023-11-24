@@ -47,9 +47,9 @@ func main() {
 	coll := client.Database("reassembleudp").Collection("payloads")
 
 	index_model := mongo.IndexModel{
-		Keys: bson.M{
-			"transaction_id": 1,
-			"offset":         1,
+		Keys: bson.D{
+			{"transaction_id", 1},
+			{"offset", 1},
 		},
 		Options: options.Index().SetUnique(true),
 	}
@@ -128,9 +128,7 @@ func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Con
 		if err != nil {
 			panic(err)
 		}
-		payload := createPayload(buf)
-
-		inserts <- payload
+		inserts <- createPayload(buf)
 	}
 }
 
