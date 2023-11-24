@@ -48,6 +48,18 @@ func main() {
 
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
+			{"flags", 1},
+			{"created_at", 1},
+			{"transaction_id", 1},
+		},
+	}
+	_, err = coll.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		panic(err)
+	}
+
+	indexModel = mongo.IndexModel{
+		Keys: bson.D{
 			{"transaction_id", 1},
 			{"offset", 1},
 		},
@@ -66,6 +78,7 @@ func main() {
 	}
 	defer conn.Close()
 
+	createTicker(coll, ctx)
 	createPool(conn, coll, ctx)
 }
 
@@ -82,6 +95,94 @@ func createPool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context
 	wg.Wait()
 }
 
+func createTicker(coll *mongo.Collection, ctx context.Context) {
+	go func() {
+		for {
+			transactionIds, err := coll.Distinct(
+				ctx,
+				"transaction_id",
+				bson.M{
+					"flags": bson.M{"$gte": 0},
+					// "created_at": bson.M{"$gte": time.Now().Add(-30 * time.Second)},
+				},
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			for transactionId := range transactionIds {
+				filter := bson.M{
+					"flags":          bson.M{"$gte": 0},
+					"transaction_id": transactionId,
+					// "created_at": bson.M{"$gte": time.Now().Add(-30 * time.Second)},
+				}
+				cursor, err := coll.Find(
+					ctx,
+					filter,
+					options.Find().SetSort(
+						bson.D{
+							{"transaction_id", 1},
+							{"offset", 1},
+						},
+					),
+				)
+				if err != nil {
+					panic(err)
+				}
+				var payloads []Payload
+				if err = cursor.All(ctx, &payloads); err != nil {
+					panic(err)
+				}
+				if len(payloads) == 0 {
+					continue
+				}
+				if payloads[0].Flags < 0 {
+					continue
+				}
+
+				flags := payloads[0].Flags + 1
+				holes := validateMessage(payloads)
+				if len(holes) == 0 {
+					flags = -1
+					message := reassembleMessage(payloads)
+					hash := hashMessage(message)
+					fmt.Printf(
+						"Message #%d length: %d sha256:%s\n",
+						transactionId,
+						len(message),
+						hash,
+					)
+				} else {
+					fmt.Println(payloads[0].CreatedAt, time.Now().Add(-30*time.Second))
+					// if payloads[0].CreatedAt < time.Now().Add(-30 * time.Second) {
+					//     flags = -2
+					//     for _, hole := range holes {
+					//         fmt.Printf(
+					//             "Message #%d Hole at: %d\n",
+					//             transactionId,
+					//             hole,
+					//         )
+					//     }
+					// }
+				}
+				_, err = coll.UpdateMany(
+					ctx,
+					filter,
+					bson.M{
+						"$set": bson.M{
+							"flags": flags,
+						},
+					},
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+}
+
 func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
 	payloads := make(chan *Payload, 1024)
 	go dbInserter(id, coll, ctx, payloads)
@@ -95,62 +196,7 @@ func worker(id int, conn net.PacketConn, coll *mongo.Collection, ctx context.Con
 	}
 }
 
-// var visited = make(map[int]bool)
-func validateDbMessage(id int, coll *mongo.Collection, ctx context.Context, transactionIds <-chan int) {
-	for transactionId := range transactionIds {
-		// _, ok := visited[transactionId]
-		// if ok {
-		//     continue
-		// }
-		// visited[transactionId] = true
-		cursor, err := coll.Find(
-			ctx,
-			bson.M{
-				"transaction_id": transactionId,
-			},
-			options.Find().SetSort(
-				bson.D{
-					{"transaction_id", 1},
-					{"offset", 1},
-				},
-			),
-		)
-		if err != nil {
-			panic(err)
-		}
-		var payloads []Payload
-		if err = cursor.All(ctx, &payloads); err != nil {
-			panic(err)
-		}
-
-		holes := validateMessage(payloads)
-		if len(holes) == 0 {
-			message := reassembleMessage(payloads)
-			hash := hashMessage(message)
-			fmt.Println(
-				"Message #",
-				transactionId,
-				" length: ",
-				len(message),
-				" sha256:",
-				hash,
-			)
-		} else {
-			for _, hole := range holes {
-				fmt.Println(
-					"Message #",
-					transactionId,
-					" Hole at: ",
-					hole,
-				)
-			}
-		}
-	}
-}
-
 func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *Payload) {
-	transactionIds := make(chan int, 1024)
-	go validateDbMessage(id, coll, ctx, transactionIds)
 	models := make([]mongo.WriteModel, 1024)
 	i := 0
 	tid := 1
@@ -166,12 +212,7 @@ func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-
 			if err != nil {
 				panic(err)
 			}
-			if payload.TransactionId != tid {
-				for i := tid; i < payload.TransactionId; i++ {
-					transactionIds <- i
-				}
-				tid = payload.TransactionId
-			}
+			tid = payload.TransactionId
 			i = 0
 			models = make([]mongo.WriteModel, 1024)
 		}
