@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,12 +19,13 @@ import (
 )
 
 type Payload struct {
-	TransactionId int   `bson:"transaction_id" json:"transaction_id"`
-	Offset        int   `bson:"offset"         json:"offset"`
-	DataSize      int   `bson:"data_size"      json:"data_size"`
-	Eof           int   `bson:"eof"            json:"eof"`
-	Flags         int   `bson:"flags"          json:"flags"`
-	Data          []int `bson:"data"           json:"data"`
+	TransactionId int       `bson:"transaction_id" json:"transaction_id"`
+	Offset        int       `bson:"offset"         json:"offset"`
+	DataSize      int       `bson:"data_size"      json:"data_size"`
+	Eof           int       `bson:"eof"            json:"eof"`
+	Flags         int       `bson:"flags"          json:"flags"`
+	Data          []int     `bson:"data"           json:"data"`
+	CreatedAt     time.Time `bson:"created_at"     json:"created_at"`
 }
 
 func main() {
@@ -135,6 +137,7 @@ func createPayload(buf []byte) *Payload {
 		DataSize:      int(big.NewInt(0).SetBytes(buf[2:4]).Uint64()),
 		Offset:        int(big.NewInt(0).SetBytes(buf[4:8]).Uint64()),
 		TransactionId: int(big.NewInt(0).SetBytes(buf[8:12]).Uint64()),
+		CreatedAt:     time.Now(),
 	}
 	if buf[0]&128 == 128 {
 		payload.Eof = 1
