@@ -29,7 +29,6 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		panic("No .env file found")
 	}
-	var wg sync.WaitGroup
 
 	ctx := context.TODO()
 	uri := os.Getenv("MONGO_URI")
@@ -67,6 +66,11 @@ func main() {
 	defer conn.Close()
 	// fmt.Println(reflect.TypeOf(conn))
 
+	create_pool(conn, coll, ctx)
+}
+
+func create_pool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
+	var wg sync.WaitGroup
 	for i := 1; i <= 4; i++ {
 		wg.Add(1)
 		i := i
