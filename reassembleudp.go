@@ -46,7 +46,7 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 	if err != nil {
 		panic(err)
 	}
-	coll := client.Database("reassembleudp").Collection("payloads")
+	coll := client.Database("reassembleudp").Collection("fragments")
 
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{

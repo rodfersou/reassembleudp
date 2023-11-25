@@ -9,15 +9,15 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
-func ValidateMessage(payloads []models.Payload) []int {
-	// Empty payload list return hole in index 0
-	if len(payloads) == 0 {
+func ValidateMessage(fragments []models.Fragment) []int {
+	// Empty fragment list return hole in index 0
+	if len(fragments) == 0 {
 		return []int{0}
 	}
 
 	// Create a map for easy lookup of offsets
-	mapOffset := make(map[int]models.Payload)
-	for _, item := range payloads {
+	mapOffset := make(map[int]models.Fragment)
+	for _, item := range fragments {
 		mapOffset[item.Offset] = item
 	}
 
@@ -46,12 +46,12 @@ func ValidateMessage(payloads []models.Payload) []int {
 	return holes
 }
 
-func ReassembleMessage(payloads []models.Payload) []byte {
+func ReassembleMessage(fragments []models.Fragment) []byte {
 	message := make([]byte, 0)
-	for _, payload := range payloads {
+	for _, fragment := range fragments {
 		// Convert array of int back to array of byte
-		data := make([]byte, payload.DataSize)
-		for i, n := range payload.Data {
+		data := make([]byte, fragment.DataSize)
+		for i, n := range fragment.Data {
 			data[i] = byte(n)
 		}
 		message = append(message, data[:]...)

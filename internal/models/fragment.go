@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Payload struct {
+type Fragment struct {
 	TransactionId int       `bson:"transaction_id" json:"transaction_id"`
 	Offset        int       `bson:"offset"         json:"offset"`
 	DataSize      int       `bson:"data_size"      json:"data_size"`
@@ -15,8 +15,8 @@ type Payload struct {
 	CreatedAt     time.Time `bson:"created_at"     json:"created_at"`
 }
 
-func CreatePayload(buf []byte) *Payload {
-	payload := Payload{
+func CreateFragment(buf []byte) *Fragment {
+	fragment := Fragment{
 		// Ignore first bit for Flags
 		Flags:         int(big.NewInt(0).SetBytes([]byte{buf[0] & 127, buf[1]}).Uint64()),
 		DataSize:      int(big.NewInt(0).SetBytes(buf[2:4]).Uint64()),
@@ -26,19 +26,19 @@ func CreatePayload(buf []byte) *Payload {
 	}
 	// Eof is the first bit
 	if buf[0]&128 == 128 {
-		payload.Eof = 1
+		fragment.Eof = 1
 	} else {
-		payload.Eof = 0
+		fragment.Eof = 0
 	}
 
 	// Convert Data []byte to []int for easy lookup at DB
-	payload.Data = []int{}
-	if len(buf) >= 12+payload.DataSize {
-		payload.Data = make([]int, payload.DataSize)
-		for i, n := range buf[12 : 12+payload.DataSize] {
-			payload.Data[i] = int(n)
+	fragment.Data = []int{}
+	if len(buf) >= 12+fragment.DataSize {
+		fragment.Data = make([]int, fragment.DataSize)
+		for i, n := range buf[12 : 12+fragment.DataSize] {
+			fragment.Data[i] = int(n)
 		}
 	}
 
-	return &payload
+	return &fragment
 }

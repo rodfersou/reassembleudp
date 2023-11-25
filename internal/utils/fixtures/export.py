@@ -12,7 +12,7 @@ for i in [1, 10, 100, 1000]:
         'offset': 1
     }.items())
 
-    result = client['reassembleudp']['payloads'].find(
+    result = client['reassembleudp']['fragments'].find(
       filter=filter,
       sort=sort
     )

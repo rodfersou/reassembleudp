@@ -17,25 +17,25 @@ func ReadUDPWorker(
 	coll *mongo.Collection,
 	ctx context.Context,
 ) {
-	payloads := make(chan *models.Payload, 1024)
-	go dbInserter(id, coll, ctx, payloads)
+	fragments := make(chan *models.Fragment, 1024)
+	go dbInserter(id, coll, ctx, fragments)
 	buf := make([]byte, 1024)
 	for {
 		_, _, err := conn.ReadFrom(buf)
 		if err != nil {
 			panic(err)
 		}
-		payloads <- models.CreatePayload(buf)
+		fragments <- models.CreateFragment(buf)
 	}
 }
 
-func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-chan *models.Payload) {
+func dbInserter(id int, coll *mongo.Collection, ctx context.Context, fragments <-chan *models.Fragment) {
 	models := make([]mongo.WriteModel, 1024)
 	i := 0
 	// tid := 1
-	for payload := range payloads {
+	for fragment := range fragments {
 		models[i] = mongo.NewInsertOneModel().SetDocument(
-			payload,
+			fragment,
 		)
 
 		i++
@@ -45,7 +45,7 @@ func dbInserter(id int, coll *mongo.Collection, ctx context.Context, payloads <-
 			if err != nil {
 				panic(err)
 			}
-			// tid = payload.TransactionId
+			// tid = fragment.TransactionId
 			i = 0
 			models = make([]mongo.WriteModel, 1024)
 		}

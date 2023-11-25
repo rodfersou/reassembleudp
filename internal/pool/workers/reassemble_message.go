@@ -25,7 +25,7 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 			retryQueue = maps.Keys(mapRetry)
 			sort.Ints(retryQueue[:])
 		}
-		var first_payload models.Payload
+		var first_fragment models.Fragment
 		err := coll.FindOne(
 			ctx,
 			bson.M{
@@ -38,7 +38,7 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 					{"offset", 1},
 				},
 			),
-		).Decode(&first_payload)
+		).Decode(&first_fragment)
 		if err != nil {
 			// Still not ready
 			continue
@@ -46,7 +46,7 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 
 		filter := bson.M{
 			"flags":          0,
-			"transaction_id": first_payload.TransactionId,
+			"transaction_id": first_fragment.TransactionId,
 			// "created_at": bson.M{"$gte": time.Now().Add(-30 * time.Second)},
 		}
 		cursor, err := coll.Find(
@@ -62,33 +62,33 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 		if err != nil {
 			panic(err)
 		}
-		var payloads []models.Payload
-		if err = cursor.All(ctx, &payloads); err != nil {
+		var fragments []models.Fragment
+		if err = cursor.All(ctx, &fragments); err != nil {
 			panic(err)
 		}
-		if len(payloads) == 0 {
+		if len(fragments) == 0 {
 			continue
 		}
 
 		flags := 0
-		holes := utils.ValidateMessage(payloads)
+		holes := utils.ValidateMessage(fragments)
 		if len(holes) == 0 {
 			flags = 1
-			message := utils.ReassembleMessage(payloads)
+			message := utils.ReassembleMessage(fragments)
 			hash := utils.HashMessage(message)
 			fmt.Printf(
 				"Message #%d length: %d sha256:%s\n",
-				first_payload.TransactionId,
+				first_fragment.TransactionId,
 				len(message),
 				hash,
 			)
 		} else {
-			mapRetry[first_payload.TransactionId] = true
-			if payloads[0].CreatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
+			mapRetry[first_fragment.TransactionId] = true
+			if fragments[0].CreatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
 				flags = 2
 				fmt.Printf(
 					"Message #%d Hole at: %d\n",
-					first_payload.TransactionId,
+					first_fragment.TransactionId,
 					holes[0],
 				)
 				// for _, hole := range holes {
