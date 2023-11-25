@@ -29,12 +29,12 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 		err := coll.FindOne(
 			ctx,
 			bson.M{
-				"flags":          0,
-				"transaction_id": bson.M{"$nin": retryQueue},
+				"flags":      0,
+				"message_id": bson.M{"$nin": retryQueue},
 			},
 			options.FindOne().SetSort(
 				bson.D{
-					{"transaction_id", 1},
+					{"message_id", 1},
 					{"offset", 1},
 				},
 			),
@@ -45,8 +45,8 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 		}
 
 		filter := bson.M{
-			"flags":          0,
-			"transaction_id": first_fragment.TransactionId,
+			"flags":      0,
+			"message_id": first_fragment.MessageId,
 			// "created_at": bson.M{"$gte": time.Now().Add(-30 * time.Second)},
 		}
 		cursor, err := coll.Find(
@@ -54,7 +54,7 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 			filter,
 			options.Find().SetSort(
 				bson.D{
-					{"transaction_id", 1},
+					{"message_id", 1},
 					{"offset", 1},
 				},
 			),
@@ -78,23 +78,23 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 			hash := utils.HashMessage(message)
 			fmt.Printf(
 				"Message #%d length: %d sha256:%s\n",
-				first_fragment.TransactionId,
+				first_fragment.MessageId,
 				len(message),
 				hash,
 			)
 		} else {
-			mapRetry[first_fragment.TransactionId] = true
+			mapRetry[first_fragment.MessageId] = true
 			if fragments[0].CreatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
 				flags = 2
 				fmt.Printf(
 					"Message #%d Hole at: %d\n",
-					first_fragment.TransactionId,
+					first_fragment.MessageId,
 					holes[0],
 				)
 				// for _, hole := range holes {
 				//     fmt.Printf(
 				//         "Message #%d Hole at: %d\n",
-				//         transactionId,
+				//         first_fragment.MessageId,
 				//         hole,
 				//     )
 				// }

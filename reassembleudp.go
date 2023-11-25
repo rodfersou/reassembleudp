@@ -52,7 +52,7 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 		Keys: bson.D{
 			{"flags", 1},
 			{"created_at", 1},
-			{"transaction_id", 1},
+			{"message_id", 1},
 		},
 	}
 	_, err = coll.Indexes().CreateOne(ctx, indexModel)
@@ -62,7 +62,7 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 
 	indexModel = mongo.IndexModel{
 		Keys: bson.D{
-			{"transaction_id", 1},
+			{"message_id", 1},
 			{"offset", 1},
 		},
 		Options: options.Index().SetUnique(true),

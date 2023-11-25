@@ -45,7 +45,7 @@ func dbInserter(id int, coll *mongo.Collection, ctx context.Context, fragments <
 			if err != nil {
 				panic(err)
 			}
-			// tid = fragment.TransactionId
+			// tid = fragment.MessageId
 			i = 0
 			models = make([]mongo.WriteModel, 1024)
 		}

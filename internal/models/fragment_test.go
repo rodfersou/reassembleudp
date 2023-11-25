@@ -88,26 +88,26 @@ func TestCreateFragmentOffset(t *testing.T) {
 func TestCreateFragmentTransactionId(t *testing.T) {
 	buf := make([]byte, 12)
 	fragment := CreateFragment(buf)
-	assert.Equal(t, fragment.TransactionId, 0)
+	assert.Equal(t, fragment.MessageId, 0)
 
 	buf[11] = 1
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.TransactionId, 1)
+	assert.Equal(t, fragment.MessageId, 1)
 
 	buf[10] = 1
 	buf[11] = 0
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.TransactionId, 256)
+	assert.Equal(t, fragment.MessageId, 256)
 
 	buf[9] = 1
 	buf[10] = 0
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.TransactionId, 65536)
+	assert.Equal(t, fragment.MessageId, 65536)
 
 	buf[8] = 1
 	buf[9] = 0
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.TransactionId, 16777216)
+	assert.Equal(t, fragment.MessageId, 16777216)
 }
 
 func TestCreateFragmentData(t *testing.T) {
