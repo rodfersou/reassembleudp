@@ -4,6 +4,7 @@ import (
 	"context"
 	// "fmt"
 	"net"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -19,6 +20,7 @@ func ReadUDPWorker(
 	conn net.PacketConn,
 	coll *mongo.Collection,
 	ctx context.Context,
+	receivingMessage *sync.Map,
 ) {
 	fragments := make(chan *models.Fragment, size)
 	go bulkInsertFragment(id, coll, ctx, fragments)
@@ -28,11 +30,18 @@ func ReadUDPWorker(
 		if err != nil {
 			panic(err)
 		}
-		fragments <- models.CreateFragment(buf)
+		fragment := models.CreateFragment(buf)
+		(*receivingMessage).Store(fragment.MessageId, time.Now().Unix())
+		fragments <- fragment
 	}
 }
 
-func bulkInsertFragment(id int, coll *mongo.Collection, ctx context.Context, fragments <-chan *models.Fragment) {
+func bulkInsertFragment(
+	id int,
+	coll *mongo.Collection,
+	ctx context.Context,
+	fragments <-chan *models.Fragment,
+) {
 	models := make([]mongo.WriteModel, size)
 	full := make(chan bool)
 	done := make(chan bool)
