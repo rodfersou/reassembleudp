@@ -34,21 +34,31 @@ func ReadUDPWorker(
 
 func bulkInsertFragment(id int, coll *mongo.Collection, ctx context.Context, fragments <-chan *models.Fragment) {
 	models := make([]mongo.WriteModel, size)
+	full := make(chan bool)
+	done := make(chan bool)
+	ticker := time.NewTicker(5 * time.Second)
 	i := 0
 
-	ticker := time.NewTicker(5 * time.Second)
 	go func() {
+		is_full := false
 		for {
-			<-ticker.C
+			select {
+			case <-full:
+				is_full = true
+			case <-ticker.C:
+				is_full = false
+			}
 			if i > 0 {
 				// Unordered Bulk inserts skip duplicates when the unique index raise error
 				_, err := coll.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
 				if err != nil {
-					// panic(err)
+					panic(err)
 				}
-				// fmt.Println("Ticker ", i)
 				i = 0
 				models = make([]mongo.WriteModel, size)
+				if is_full {
+					done <- true
+				}
 			}
 		}
 	}()
@@ -57,16 +67,10 @@ func bulkInsertFragment(id int, coll *mongo.Collection, ctx context.Context, fra
 		models[i] = mongo.NewInsertOneModel().SetDocument(
 			fragment,
 		)
-
 		i++
 		if i == size {
-			// Unordered Bulk inserts skip duplicates when the unique index raise error
-			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
-			if err != nil {
-				// panic(err)
-			}
-			i = 0
-			models = make([]mongo.WriteModel, size)
+			full <- true
+			<-done
 		}
 	}
 }
