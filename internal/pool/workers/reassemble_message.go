@@ -3,9 +3,7 @@ package workers
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/maps"
-	"sort"
-	"time"
+	// "time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,21 +14,13 @@ import (
 )
 
 func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
-	mapRetry := make(map[int]bool)
 	for {
-		retryQueue := maps.Keys(mapRetry)
-		sort.Ints(retryQueue[:])
-		if len(retryQueue) > 100 {
-			delete(mapRetry, retryQueue[0])
-			retryQueue = maps.Keys(mapRetry)
-			sort.Ints(retryQueue[:])
-		}
 		var first_fragment models.Fragment
 		err := coll.FindOne(
 			ctx,
 			bson.M{
-				"flags":      0,
-				"message_id": bson.M{"$nin": retryQueue},
+				"flags": 0,
+				// "message_id": 10,
 			},
 			options.FindOne().SetSort(
 				bson.D{
@@ -83,22 +73,21 @@ func ReassembleMessageWorker(coll *mongo.Collection, ctx context.Context) {
 				hash,
 			)
 		} else {
-			mapRetry[first_fragment.MessageId] = true
-			if fragments[0].CreatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
-				flags = 2
-				fmt.Printf(
-					"Message #%d Hole at: %d\n",
-					first_fragment.MessageId,
-					holes[0],
-				)
-				// for _, hole := range holes {
-				//     fmt.Printf(
-				//         "Message #%d Hole at: %d\n",
-				//         first_fragment.MessageId,
-				//         hole,
-				//     )
-				// }
-			}
+			// if fragments[0].CreatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
+			flags = 2
+			fmt.Printf(
+				"Message #%d Hole at: %d\n",
+				first_fragment.MessageId,
+				holes[0],
+			)
+			// for _, hole := range holes {
+			//     fmt.Printf(
+			//         "Message #%d Hole at: %d\n",
+			//         first_fragment.MessageId,
+			//         hole,
+			//     )
+			// }
+			// }
 		}
 		_, err = coll.UpdateMany(
 			ctx,

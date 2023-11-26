@@ -40,6 +40,7 @@ func ValidateMessage(fragments []models.Fragment) []int {
 	// Last fragment need to be Eof
 	last := mapOffset[keys[len(keys)-1]]
 	if last.Eof != 1 {
+		// fmt.Println(len(fragments), last.Offset, last.DataSize)
 		holes = append(holes, last.Offset+last.DataSize)
 	}
 

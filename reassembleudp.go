@@ -50,18 +50,6 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
-			{"flags", 1},
-			{"created_at", 1},
-			{"message_id", 1},
-		},
-	}
-	_, err = coll.Indexes().CreateOne(ctx, indexModel)
-	if err != nil {
-		panic(err)
-	}
-
-	indexModel = mongo.IndexModel{
-		Keys: bson.D{
 			{"message_id", 1},
 			{"offset", 1},
 		},
@@ -71,6 +59,19 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 	if err != nil {
 		panic(err)
 	}
+
+	// indexModel = mongo.IndexModel{
+	//  Keys: bson.D{
+	//      {"flags", 1},
+	//      {"created_at", 1},
+	//      {"message_id", 1},
+	//  },
+	// }
+	// _, err = coll.Indexes().CreateOne(ctx, indexModel)
+	// if err != nil {
+	//  panic(err)
+	// }
+
 	return ctx, coll, func() {
 		if err := client.Disconnect(ctx); err != nil {
 			panic(err)

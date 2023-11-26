@@ -4,6 +4,7 @@ import (
 	"context"
 	// "fmt"
 	"net"
+	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -11,15 +12,17 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
+const size = 5000
+
 func ReadUDPWorker(
 	id int,
 	conn net.PacketConn,
 	coll *mongo.Collection,
 	ctx context.Context,
 ) {
-	fragments := make(chan *models.Fragment, 1024)
-	go dbInserter(id, coll, ctx, fragments)
-	buf := make([]byte, 1024)
+	fragments := make(chan *models.Fragment, size)
+	go bulkInsertFragment(id, coll, ctx, fragments)
+	buf := make([]byte, size)
 	for {
 		_, _, err := conn.ReadFrom(buf)
 		if err != nil {
@@ -29,33 +32,41 @@ func ReadUDPWorker(
 	}
 }
 
-func dbInserter(id int, coll *mongo.Collection, ctx context.Context, fragments <-chan *models.Fragment) {
-	models := make([]mongo.WriteModel, 1024)
+func bulkInsertFragment(id int, coll *mongo.Collection, ctx context.Context, fragments <-chan *models.Fragment) {
+	models := make([]mongo.WriteModel, size)
 	i := 0
-	// tid := 1
+
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+			<-ticker.C
+			if i > 0 {
+				// Unordered Bulk inserts skip duplicates when the unique index raise error
+				_, err := coll.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
+				if err != nil {
+					// panic(err)
+				}
+				// fmt.Println("Ticker ", i)
+				i = 0
+				models = make([]mongo.WriteModel, size)
+			}
+		}
+	}()
+
 	for fragment := range fragments {
 		models[i] = mongo.NewInsertOneModel().SetDocument(
 			fragment,
 		)
 
 		i++
-		if i == 1024 {
+		if i == size {
 			// Unordered Bulk inserts skip duplicates when the unique index raise error
 			_, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
 			if err != nil {
-				panic(err)
+				// panic(err)
 			}
-			// tid = fragment.MessageId
 			i = 0
-			models = make([]mongo.WriteModel, 1024)
+			models = make([]mongo.WriteModel, size)
 		}
 	}
-	// if i > 0 {
-	//     // Unordered Bulk inserts skip duplicates when the unique index raise error
-	//     _, err := coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
-	//     if err != nil {
-	//         panic(err)
-	//     }
-	//     fmt.Println("Last transaction ", tid)
-	// }
 }

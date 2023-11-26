@@ -4,17 +4,17 @@ import json
 
 for i in [1, 10, 100, 1000]:
     client = MongoClient('mongodb://localhost:27017/')
-    filter={
-        'transaction_id': i
+    filter = {
+        'message_id': i
     }
-    sort=list({
-        'transaction_id': 1,
+    sort = list({
+        'message_id': 1,
         'offset': 1
     }.items())
 
     result = client['reassembleudp']['fragments'].find(
-      filter=filter,
-      sort=sort
+        filter=filter,
+        sort=sort
     )
 
     with open(f'{i:04}.json', 'w') as f:

@@ -20,9 +20,9 @@ func CreatePool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context
 			workers.ReadUDPWorker(i, conn, coll, ctx)
 		}()
 	}
-	go func() {
-		defer wg.Done()
-		workers.ReassembleMessageWorker(coll, ctx)
-	}()
+	// go func() {
+	//  defer wg.Done()
+	//  workers.ReassembleMessageWorker(coll, ctx)
+	// }()
 	wg.Wait()
 }

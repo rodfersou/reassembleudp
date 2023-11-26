@@ -17,7 +17,7 @@ func TestValidateMessage(t *testing.T) {
 	json.Unmarshal(content, &fragments)
 
 	holes := ValidateMessage(fragments)
-	assert.Equal(t, holes, []int{})
+	assert.Equal(t, []int{}, holes)
 }
 
 func TestValidateInvalidMessage(t *testing.T) {
