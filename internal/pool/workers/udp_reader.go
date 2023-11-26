@@ -61,6 +61,9 @@ func bulkInsertFragment(
 				// Unordered Bulk inserts skip duplicates when the unique index raise error
 				_, err := coll.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
 				if err != nil {
+					// If run emitter multiple times, can have colisions because emitter repeat the message id
+					// it's safe to ignore duplicate errors when that happens
+					// or maybe it's better to upsert the changes instead of insert... yeah, sounds right to upsert!
 					panic(err)
 				}
 				i = 0
