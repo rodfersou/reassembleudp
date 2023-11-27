@@ -1,4 +1,4 @@
-package workers
+package pool
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
-const size = 5000
+const buffer_size = 5000
 
 func ReadUDPWorker(
 	id int,
@@ -22,9 +22,9 @@ func ReadUDPWorker(
 	ctx context.Context,
 	// receivingMessage *sync.Map,
 ) {
-	fragments := make(chan *models.Fragment, size)
+	fragments := make(chan *models.Fragment, buffer_size)
 	go bulkInsertFragment(id, coll, ctx, fragments)
-	buf := make([]byte, size)
+	buf := make([]byte, buffer_size)
 	for {
 		_, _, err := conn.ReadFrom(buf)
 		if err != nil {
@@ -42,7 +42,7 @@ func bulkInsertFragment(
 	ctx context.Context,
 	fragments <-chan *models.Fragment,
 ) {
-	models := make([]mongo.WriteModel, size)
+	models := make([]mongo.WriteModel, buffer_size)
 	full := make(chan bool)
 	done := make(chan bool)
 	ticker := time.NewTicker(5 * time.Second)
@@ -67,7 +67,7 @@ func bulkInsertFragment(
 					panic(err)
 				}
 				i = 0
-				models = make([]mongo.WriteModel, size)
+				models = make([]mongo.WriteModel, buffer_size)
 				if is_full {
 					done <- true
 				}
@@ -80,7 +80,7 @@ func bulkInsertFragment(
 			fragment,
 		)
 		i++
-		if i == size {
+		if i == buffer_size {
 			full <- true
 			<-done
 		}

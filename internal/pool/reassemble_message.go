@@ -1,4 +1,4 @@
-package workers
+package pool
 
 import (
 	"context"
