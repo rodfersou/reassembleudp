@@ -16,10 +16,10 @@ const buffer_size = 512
 
 func ReadUDPWorker(
 	id int,
-	conn net.PacketConn,
+	ctx context.Context,
 	coll_messages *mongo.Collection,
 	coll_fragments *mongo.Collection,
-	ctx context.Context,
+	conn net.PacketConn,
 ) {
 	fragments := make(chan *models.Fragment, batch_size)
 	go bulkInsertFragment(id, coll_fragments, ctx, fragments)

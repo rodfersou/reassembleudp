@@ -18,13 +18,13 @@ func main() {
 		panic("No .env file found")
 	}
 
-	conn, disconnect := getUDPConnection()
-	defer disconnect()
-
 	ctx, coll_messages, coll_fragments, disconnect := getMongoCollection()
 	defer disconnect()
 
-	pool.CreatePool(conn, coll_messages, coll_fragments, ctx)
+	conn, disconnect := getUDPConnection()
+	defer disconnect()
+
+	pool.CreatePool(ctx, coll_messages, coll_fragments, conn)
 }
 
 func getUDPConnection() (net.PacketConn, func()) {

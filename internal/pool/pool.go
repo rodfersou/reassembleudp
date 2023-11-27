@@ -11,10 +11,10 @@ import (
 const size = 4
 
 func CreatePool(
-	conn net.PacketConn,
+	ctx context.Context,
 	coll_messages *mongo.Collection,
 	coll_fragments *mongo.Collection,
-	ctx context.Context,
+	conn net.PacketConn,
 ) {
 	var wg sync.WaitGroup
 	for i := 1; i <= size; i++ {
@@ -22,13 +22,13 @@ func CreatePool(
 		i := i
 		go func() {
 			defer wg.Done()
-			ReadUDPWorker(i, conn, coll_messages, coll_fragments, ctx)
+			ReadUDPWorker(i, ctx, coll_messages, coll_fragments, conn)
 		}()
 	}
-	// wg.Add(1)
-	// go func() {
-	//  defer wg.Done()
-	//  ReassembleMessageWorker(coll_messages, coll_fragments, ctx)
-	// }()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ReassembleMessageWorker(ctx, coll_messages, coll_fragments)
+	}()
 	wg.Wait()
 }

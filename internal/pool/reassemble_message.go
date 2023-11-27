@@ -16,9 +16,9 @@ import (
 )
 
 func ReassembleMessageWorker(
-	coll *mongo.Collection,
 	ctx context.Context,
-	// receivingMessage *sync.Map,
+	coll_messages *mongo.Collection,
+	coll_fragments *mongo.Collection,
 ) {
 	for {
 		type Pair struct {
@@ -57,7 +57,7 @@ func ReassembleMessageWorker(
 			filter := bson.M{
 				"message_id": messageId,
 			}
-			cursor, err := coll.Find(
+			cursor, err := coll_fragments.Find(
 				ctx,
 				filter,
 				options.Find().SetSort(
