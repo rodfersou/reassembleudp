@@ -1,4 +1,4 @@
-.direnv/
-.mongodb/
+.cache/
 .env
+.mypy_cache/
 reassembleudp

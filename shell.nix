@@ -3,8 +3,8 @@ pkgs.mkShell {
     name = "go-shell";
     packages = [
         (python311.withPackages(ps: with ps; [
-            supervisor
             pymongo
+            pytest
         ]))
         go_1_20
         nodejs-19_x
@@ -15,13 +15,17 @@ pkgs.mkShell {
         pre-commit
         delve
         entr
+        tmux
     ];
 
     shellHook = ''
         echo "Starting Go development environment"
 
-        export GOPATH=$ENV_DIR/.direnv
-        export PATH="$GOPATH/bin:$ENV_DIR/node_modules/.bin:$PATH"
+        export GOPATH=$ENV_DIR/.cache/go
+        mkdir -p $GOPATH
+        export MONGOPATH=$ENV_DIR/.cache/mongo
+        mkdir -p $MONGOPATH
+        export PATH="$GOPATH/bin:$PATH"
 
         go mod download
     '';
