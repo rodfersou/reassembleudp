@@ -113,12 +113,12 @@ func TestCreateFragmentTransactionId(t *testing.T) {
 func TestCreateFragmentData(t *testing.T) {
 	buf := make([]byte, 12)
 	fragment := CreateFragment(buf)
-	assert.Equal(t, fragment.Data, []int{})
+	assert.Equal(t, fragment.Data, []byte{})
 
 	// If buffer size is smaller than data_size, data is empty
 	buf[3] = 3
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.Data, []int{})
+	assert.Equal(t, fragment.Data, []byte{})
 
 	buf = make([]byte, 12+3)
 	buf[3] = 3
@@ -126,5 +126,5 @@ func TestCreateFragmentData(t *testing.T) {
 	buf[13] = 2
 	buf[14] = 3
 	fragment = CreateFragment(buf)
-	assert.Equal(t, fragment.Data, []int{1, 2, 3})
+	assert.Equal(t, fragment.Data, []byte{1, 2, 3})
 }

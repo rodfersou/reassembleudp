@@ -40,7 +40,6 @@ func ValidateMessage(fragments []models.Fragment) []int {
 	// Last fragment need to be Eof
 	last := mapOffset[keys[len(keys)-1]]
 	if last.Eof != 1 {
-		// fmt.Println(len(fragments), last.Offset, last.DataSize)
 		holes = append(holes, last.Offset+last.DataSize)
 	}
 
@@ -50,12 +49,7 @@ func ValidateMessage(fragments []models.Fragment) []int {
 func ReassembleMessage(fragments []models.Fragment) []byte {
 	message := make([]byte, 0)
 	for _, fragment := range fragments {
-		// Convert array of int back to array of byte
-		data := make([]byte, fragment.DataSize)
-		for i, n := range fragment.Data {
-			data[i] = byte(n)
-		}
-		message = append(message, data[:]...)
+		message = append(message, fragment.Data[:]...)
 	}
 	return message
 }

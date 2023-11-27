@@ -2,17 +2,15 @@ package models
 
 import (
 	"math/big"
-	// "time"
 )
 
 type Fragment struct {
-	MessageId int   `bson:"message_id" json:"message_id"`
-	Offset    int   `bson:"offset"     json:"offset"`
-	DataSize  int   `bson:"data_size"  json:"data_size"`
-	Eof       int   `bson:"eof"        json:"eof"`
-	Flags     int   `bson:"flags"      json:"flags"`
-	Data      []int `bson:"data"       json:"data"`
-	// CreatedAt time.Time `bson:"created_at" json:"created_at"`
+	MessageId int    `bson:"message_id" json:"message_id"`
+	Offset    int    `bson:"offset"     json:"offset"`
+	DataSize  int    `bson:"data_size"  json:"data_size"`
+	Eof       int    `bson:"eof"        json:"eof"`
+	Flags     int    `bson:"flags"      json:"flags"`
+	Data      []byte `bson:"data"       json:"data"`
 }
 
 func CreateFragment(buf []byte) *Fragment {
@@ -22,7 +20,6 @@ func CreateFragment(buf []byte) *Fragment {
 		DataSize:  int(big.NewInt(0).SetBytes(buf[2:4]).Uint64()),
 		Offset:    int(big.NewInt(0).SetBytes(buf[4:8]).Uint64()),
 		MessageId: int(big.NewInt(0).SetBytes(buf[8:12]).Uint64()),
-		// CreatedAt: time.Now(),
 	}
 	// Eof is the first bit
 	if buf[0]&128 == 128 {
@@ -30,14 +27,9 @@ func CreateFragment(buf []byte) *Fragment {
 	} else {
 		fragment.Eof = 0
 	}
-
-	// Convert Data []byte to []int for easy lookup at DB
-	fragment.Data = []int{}
+	fragment.Data = []byte{}
 	if len(buf) >= 12+fragment.DataSize {
-		fragment.Data = make([]int, fragment.DataSize)
-		for i, n := range buf[12 : 12+fragment.DataSize] {
-			fragment.Data[i] = int(n)
-		}
+		fragment.Data = buf[12 : 12+fragment.DataSize]
 	}
 
 	return &fragment
