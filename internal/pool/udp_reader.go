@@ -23,7 +23,7 @@ func ReadUDPWorker(
 	conn net.PacketConn,
 ) {
 	fragments := make(chan *models.Fragment, batch_size)
-	go bulkInsertFragment(id, coll_messages, coll_fragments, ctx, fragments)
+	go bulkInsertFragment(id, ctx, coll_messages, coll_fragments, fragments)
 	buf := make([]byte, buffer_size)
 	for {
 		_, _, err := conn.ReadFrom(buf)
@@ -37,9 +37,9 @@ func ReadUDPWorker(
 
 func bulkInsertFragment(
 	id int,
+	ctx context.Context,
 	coll_messages *mongo.Collection,
 	coll_fragments *mongo.Collection,
-	ctx context.Context,
 	fragments <-chan *models.Fragment,
 ) {
 	message_updated_at := make(map[int]bool)
@@ -47,6 +47,7 @@ func bulkInsertFragment(
 	full := make(chan bool)
 	done := make(chan bool)
 	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 	i := 0
 
 	go func() {
@@ -69,12 +70,17 @@ func bulkInsertFragment(
 				message_batch := make([]mongo.WriteModel, len(message_updated_at))
 				index := 0
 				for messageId, _ := range message_updated_at {
+					delete(message_updated_at, messageId)
 					message_batch[index] = mongo.NewUpdateOneModel().SetFilter(
 						bson.M{
 							"_id": messageId,
 						},
 					).SetUpdate(
-						bson.M{"$set": models.CreateMessage(messageId)},
+						bson.M{"$setOnInsert": bson.M{
+							"_id":        messageId,
+							"status":     models.InProgress,
+							"updated_at": time.Now(),
+						}},
 					).SetUpsert(
 						true,
 					)

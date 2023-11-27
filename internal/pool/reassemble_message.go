@@ -3,8 +3,6 @@ package pool
 import (
 	"context"
 	"fmt"
-	// "sort"
-	// "sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,41 +19,28 @@ func ReassembleMessageWorker(
 	coll_fragments *mongo.Collection,
 ) {
 	for {
-		type Pair struct {
-			Key   int
-			Value int64
+		cursor, err := coll_messages.Find(
+			ctx,
+			bson.M{
+				"status": models.InProgress,
+			},
+			options.Find().SetSort(
+				bson.D{
+					{"updated_at", 1},
+					{"_id", 1},
+				},
+			),
+		)
+		if err != nil {
+			panic(err)
 		}
-		var oldestMessage []Pair
-		// (*receivingMessage).Range(func(k, v interface{}) bool {
-		//  intKey, ok := k.(int)
-		//  if !ok {
-		//      return false
-		//  }
-		//  int64Value, ok := v.(int64)
-		//  if !ok {
-		//      return false
-		//  }
-		//  oldestMessage = append(oldestMessage, Pair{intKey, int64Value})
-		//  return true
-		// })
-		// if len(oldestMessage) == 0 {
-		//  time.Sleep(1 * time.Second)
-		//  continue
-		// }
-		// sort.Slice(oldestMessage, func(i, j int) bool {
-		//  iv, jv := oldestMessage[i], oldestMessage[j]
-		//  switch {
-		//  case iv.Value != jv.Value:
-		//      return iv.Value < jv.Value
-		//  default:
-		//      return iv.Key < jv.Key
-		//  }
-		// })
-		for _, kv := range oldestMessage {
-			messageId := kv.Key
-			lastReceived := kv.Value
+		var messages []models.Message
+		if err = cursor.All(ctx, &messages); err != nil {
+			panic(err)
+		}
+		for _, message := range messages {
 			filter := bson.M{
-				"message_id": messageId,
+				"message_id": message.MessageId,
 			}
 			cursor, err := coll_fragments.Find(
 				ctx,
@@ -79,31 +64,44 @@ func ReassembleMessageWorker(
 			}
 
 			holes := utils.ValidateMessage(fragments)
+			status := models.InProgress
 			if len(holes) == 0 {
-				// (*receivingMessage).Delete(messageId)
-				message := utils.ReassembleMessage(fragments)
-				hash := utils.HashMessage(message)
+				status = models.Valid
+				data := utils.ReassembleMessage(fragments)
+				checksum := utils.HashMessage(data)
 				fmt.Printf(
 					"Message #%d length: %d sha256:%s\n",
-					messageId,
-					len(message),
-					hash,
+					message.MessageId,
+					len(data),
+					checksum,
 				)
 			} else {
-				if lastReceived < time.Now().Add(-30*time.Second).Unix() {
-					// (*receivingMessage).Delete(messageId)
+				if message.UpdatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
+					status = models.Invalid
 					fmt.Printf(
 						"Message #%d Hole at: %d\n",
-						messageId,
+						message.MessageId,
 						holes[0],
 					)
-					// for _, hole := range holes {
-					//     fmt.Printf(
-					//         "Message #%d Hole at: %d\n",
-					//         messageId,
-					//         hole,
-					//     )
-					// }
+					for _, hole := range holes {
+						fmt.Printf(
+							"Message #%d Hole at: %d\n",
+							message.MessageId,
+							hole,
+						)
+					}
+				}
+			}
+			if status != models.InProgress {
+				_, err := coll_messages.UpdateOne(
+					ctx,
+					bson.M{"_id": message.MessageId},
+					bson.M{"$set": bson.M{
+						"status": status,
+					}},
+				)
+				if err != nil {
+					panic(err)
 				}
 			}
 		}

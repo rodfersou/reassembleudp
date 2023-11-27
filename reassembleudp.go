@@ -51,10 +51,12 @@ func getMongoCollection() (
 	if err != nil {
 		panic(err)
 	}
+	client.Database("reassembleudp").Drop(ctx)
 
 	coll_messages := client.Database("reassembleudp").Collection("messages")
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
+			{"status", 1},
 			{"updated_at", 1},
 		},
 	}
