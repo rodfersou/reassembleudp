@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -61,9 +62,6 @@ func bulkInsertFragment(
 				// Unordered Bulk inserts skip duplicates when the unique index raise error
 				_, err := coll.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
 				if err != nil {
-					// If run emitter multiple times, can have colisions because emitter repeat the message id
-					// it's safe to ignore duplicate errors when that happens
-					// or maybe it's better to upsert the changes instead of insert... yeah, sounds right to upsert!
 					panic(err)
 				}
 				i = 0
@@ -76,8 +74,15 @@ func bulkInsertFragment(
 	}()
 
 	for fragment := range fragments {
-		models[i] = mongo.NewInsertOneModel().SetDocument(
-			fragment,
+		models[i] = mongo.NewUpdateOneModel().SetFilter(
+			bson.M{
+				"message_id": fragment.MessageId,
+				"offset":     fragment.Offset,
+			},
+		).SetUpdate(
+			bson.M{"$set": fragment},
+		).SetUpsert(
+			true,
 		)
 		i++
 		if i == size {

@@ -81,6 +81,13 @@ func ReassembleMessageWorker(
 			holes := utils.ValidateMessage(fragments)
 			if len(holes) == 0 {
 				(*receivingMessage).Delete(messageId)
+				_, err = coll.DeleteMany(
+					ctx,
+					filter,
+				)
+				if err != nil {
+					panic(err)
+				}
 				message := utils.ReassembleMessage(fragments)
 				hash := utils.HashMessage(message)
 				fmt.Printf(
@@ -92,6 +99,13 @@ func ReassembleMessageWorker(
 			} else {
 				if lastReceived < time.Now().Add(-30*time.Second).Unix() {
 					(*receivingMessage).Delete(messageId)
+					_, err = coll.DeleteMany(
+						ctx,
+						filter,
+					)
+					if err != nil {
+						panic(err)
+					}
 					fmt.Printf(
 						"Message #%d Hole at: %d\n",
 						messageId,

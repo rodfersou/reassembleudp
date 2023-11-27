@@ -14,6 +14,7 @@ const size = 4
 
 func CreatePool(conn net.PacketConn, coll *mongo.Collection, ctx context.Context) {
 	receivingMessage := sync.Map{}
+
 	var wg sync.WaitGroup
 	for i := 1; i <= size; i++ {
 		wg.Add(1)
