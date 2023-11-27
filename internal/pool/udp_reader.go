@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -22,7 +23,7 @@ func ReadUDPWorker(
 	conn net.PacketConn,
 ) {
 	fragments := make(chan *models.Fragment, batch_size)
-	go bulkInsertFragment(id, coll_fragments, ctx, fragments)
+	go bulkInsertFragment(id, coll_messages, coll_fragments, ctx, fragments)
 	buf := make([]byte, buffer_size)
 	for {
 		_, _, err := conn.ReadFrom(buf)
@@ -30,18 +31,19 @@ func ReadUDPWorker(
 			panic(err)
 		}
 		fragment := models.CreateFragment(buf)
-		// (*receivingMessage).Store(fragment.MessageId, time.Now().Unix())
 		fragments <- fragment
 	}
 }
 
 func bulkInsertFragment(
 	id int,
+	coll_messages *mongo.Collection,
 	coll_fragments *mongo.Collection,
 	ctx context.Context,
 	fragments <-chan *models.Fragment,
 ) {
-	models := make([]mongo.WriteModel, batch_size)
+	message_updated_at := make(map[int]bool)
+	fragment_batch := make([]mongo.WriteModel, batch_size)
 	full := make(chan bool)
 	done := make(chan bool)
 	ticker := time.NewTicker(5 * time.Second)
@@ -58,12 +60,31 @@ func bulkInsertFragment(
 			}
 			if i > 0 {
 				// Unordered Bulk inserts skip duplicates when the unique index raise error
-				_, err := coll_fragments.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
+				_, err := coll_fragments.BulkWrite(ctx, fragment_batch[:i], options.BulkWrite().SetOrdered(false))
 				if err != nil {
 					panic(err)
 				}
 				i = 0
-				models = make([]mongo.WriteModel, batch_size)
+
+				message_batch := make([]mongo.WriteModel, len(message_updated_at))
+				index := 0
+				for messageId, _ := range message_updated_at {
+					message_batch[index] = mongo.NewUpdateOneModel().SetFilter(
+						bson.M{
+							"_id": messageId,
+						},
+					).SetUpdate(
+						bson.M{"$set": models.CreateMessage(messageId)},
+					).SetUpsert(
+						true,
+					)
+					index++
+				}
+				_, err = coll_messages.BulkWrite(ctx, message_batch, options.BulkWrite().SetOrdered(false))
+				if err != nil {
+					panic(err)
+				}
+
 				if is_full {
 					done <- true
 				}
@@ -72,7 +93,8 @@ func bulkInsertFragment(
 	}()
 
 	for fragment := range fragments {
-		models[i] = mongo.NewInsertOneModel().SetDocument(
+		message_updated_at[fragment.MessageId] = true
+		fragment_batch[i] = mongo.NewInsertOneModel().SetDocument(
 			fragment,
 		)
 		i++

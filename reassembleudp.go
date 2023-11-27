@@ -51,10 +51,20 @@ func getMongoCollection() (
 	if err != nil {
 		panic(err)
 	}
-	coll_messages := client.Database("reassembleudp").Collection("messages")
-	coll_fragments := client.Database("reassembleudp").Collection("fragments")
 
+	coll_messages := client.Database("reassembleudp").Collection("messages")
 	indexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{"updated_at", 1},
+		},
+	}
+	_, err = coll_messages.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		panic(err)
+	}
+
+	coll_fragments := client.Database("reassembleudp").Collection("fragments")
+	indexModel = mongo.IndexModel{
 		Keys: bson.D{
 			{"message_id", 1},
 			{"offset", 1},
