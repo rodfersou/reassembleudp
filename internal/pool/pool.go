@@ -7,7 +7,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/rodfersou/reassembleudp/internal/pool/workers"
+	"github.com/rodfersou/reassembleudp/internal/workers"
 )
 
 const size = 4
