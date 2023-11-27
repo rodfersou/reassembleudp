@@ -21,10 +21,10 @@ func main() {
 	conn, disconnect := getUDPConnection()
 	defer disconnect()
 
-	ctx, coll, disconnect := getMongoCollection()
+	ctx, coll_messages, coll_fragments, disconnect := getMongoCollection()
 	defer disconnect()
 
-	pool.CreatePool(conn, coll, ctx)
+	pool.CreatePool(conn, coll_messages, coll_fragments, ctx)
 }
 
 func getUDPConnection() (net.PacketConn, func()) {
@@ -39,14 +39,20 @@ func getUDPConnection() (net.PacketConn, func()) {
 	}
 }
 
-func getMongoCollection() (context.Context, *mongo.Collection, func()) {
+func getMongoCollection() (
+	context.Context,
+	*mongo.Collection,
+	*mongo.Collection,
+	func(),
+) {
 	ctx := context.TODO()
 	uri := os.Getenv("MONGO_URI")
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
 	}
-	coll := client.Database("reassembleudp").Collection("fragments")
+	coll_messages := client.Database("reassembleudp").Collection("messages")
+	coll_fragments := client.Database("reassembleudp").Collection("fragments")
 
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
@@ -55,24 +61,12 @@ func getMongoCollection() (context.Context, *mongo.Collection, func()) {
 		},
 		Options: options.Index().SetUnique(true),
 	}
-	_, err = coll.Indexes().CreateOne(ctx, indexModel)
+	_, err = coll_fragments.Indexes().CreateOne(ctx, indexModel)
 	if err != nil {
 		panic(err)
 	}
 
-	// indexModel = mongo.IndexModel{
-	//  Keys: bson.D{
-	//      {"flags", 1},
-	//      {"created_at", 1},
-	//      {"message_id", 1},
-	//  },
-	// }
-	// _, err = coll.Indexes().CreateOne(ctx, indexModel)
-	// if err != nil {
-	//  panic(err)
-	// }
-
-	return ctx, coll, func() {
+	return ctx, coll_messages, coll_fragments, func() {
 		if err := client.Disconnect(ctx); err != nil {
 			panic(err)
 		}

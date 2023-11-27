@@ -2,9 +2,7 @@ package pool
 
 import (
 	"context"
-	// "fmt"
 	"net"
-	// "sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,17 +11,18 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
-const buffer_size = 5000
+const batch_size = 4000
+const buffer_size = 512
 
 func ReadUDPWorker(
 	id int,
 	conn net.PacketConn,
-	coll *mongo.Collection,
+	coll_messages *mongo.Collection,
+	coll_fragments *mongo.Collection,
 	ctx context.Context,
-	// receivingMessage *sync.Map,
 ) {
-	fragments := make(chan *models.Fragment, buffer_size)
-	go bulkInsertFragment(id, coll, ctx, fragments)
+	fragments := make(chan *models.Fragment, batch_size)
+	go bulkInsertFragment(id, coll_fragments, ctx, fragments)
 	buf := make([]byte, buffer_size)
 	for {
 		_, _, err := conn.ReadFrom(buf)
@@ -38,11 +37,11 @@ func ReadUDPWorker(
 
 func bulkInsertFragment(
 	id int,
-	coll *mongo.Collection,
+	coll_fragments *mongo.Collection,
 	ctx context.Context,
 	fragments <-chan *models.Fragment,
 ) {
-	models := make([]mongo.WriteModel, buffer_size)
+	models := make([]mongo.WriteModel, batch_size)
 	full := make(chan bool)
 	done := make(chan bool)
 	ticker := time.NewTicker(5 * time.Second)
@@ -59,15 +58,12 @@ func bulkInsertFragment(
 			}
 			if i > 0 {
 				// Unordered Bulk inserts skip duplicates when the unique index raise error
-				_, err := coll.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
+				_, err := coll_fragments.BulkWrite(ctx, models[:i], options.BulkWrite().SetOrdered(false))
 				if err != nil {
-					// If run emitter multiple times, can have colisions because emitter repeat the message id
-					// it's safe to ignore duplicate errors when that happens
-					// or maybe it's better to upsert the changes instead of insert... yeah, sounds right to upsert!
 					panic(err)
 				}
 				i = 0
-				models = make([]mongo.WriteModel, buffer_size)
+				models = make([]mongo.WriteModel, batch_size)
 				if is_full {
 					done <- true
 				}
@@ -80,7 +76,7 @@ func bulkInsertFragment(
 			fragment,
 		)
 		i++
-		if i == buffer_size {
+		if i == batch_size {
 			full <- true
 			<-done
 		}
