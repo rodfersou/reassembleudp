@@ -3,8 +3,8 @@ package workers
 import (
 	"context"
 	"fmt"
-	"sort"
-	"sync"
+	// "sort"
+	// "sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,7 +18,7 @@ import (
 func ReassembleMessageWorker(
 	coll *mongo.Collection,
 	ctx context.Context,
-	receivingMessage *sync.Map,
+	// receivingMessage *sync.Map,
 ) {
 	for {
 		type Pair struct {
@@ -26,31 +26,31 @@ func ReassembleMessageWorker(
 			Value int64
 		}
 		var oldestMessage []Pair
-		(*receivingMessage).Range(func(k, v interface{}) bool {
-			intKey, ok := k.(int)
-			if !ok {
-				return false
-			}
-			int64Value, ok := v.(int64)
-			if !ok {
-				return false
-			}
-			oldestMessage = append(oldestMessage, Pair{intKey, int64Value})
-			return true
-		})
-		if len(oldestMessage) == 0 {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		sort.Slice(oldestMessage, func(i, j int) bool {
-			iv, jv := oldestMessage[i], oldestMessage[j]
-			switch {
-			case iv.Value != jv.Value:
-				return iv.Value < jv.Value
-			default:
-				return iv.Key < jv.Key
-			}
-		})
+		// (*receivingMessage).Range(func(k, v interface{}) bool {
+		//  intKey, ok := k.(int)
+		//  if !ok {
+		//      return false
+		//  }
+		//  int64Value, ok := v.(int64)
+		//  if !ok {
+		//      return false
+		//  }
+		//  oldestMessage = append(oldestMessage, Pair{intKey, int64Value})
+		//  return true
+		// })
+		// if len(oldestMessage) == 0 {
+		//  time.Sleep(1 * time.Second)
+		//  continue
+		// }
+		// sort.Slice(oldestMessage, func(i, j int) bool {
+		//  iv, jv := oldestMessage[i], oldestMessage[j]
+		//  switch {
+		//  case iv.Value != jv.Value:
+		//      return iv.Value < jv.Value
+		//  default:
+		//      return iv.Key < jv.Key
+		//  }
+		// })
 		for _, kv := range oldestMessage {
 			messageId := kv.Key
 			lastReceived := kv.Value
@@ -80,14 +80,7 @@ func ReassembleMessageWorker(
 
 			holes := utils.ValidateMessage(fragments)
 			if len(holes) == 0 {
-				(*receivingMessage).Delete(messageId)
-				_, err = coll.DeleteMany(
-					ctx,
-					filter,
-				)
-				if err != nil {
-					panic(err)
-				}
+				// (*receivingMessage).Delete(messageId)
 				message := utils.ReassembleMessage(fragments)
 				hash := utils.HashMessage(message)
 				fmt.Printf(
@@ -98,14 +91,7 @@ func ReassembleMessageWorker(
 				)
 			} else {
 				if lastReceived < time.Now().Add(-30*time.Second).Unix() {
-					(*receivingMessage).Delete(messageId)
-					_, err = coll.DeleteMany(
-						ctx,
-						filter,
-					)
-					if err != nil {
-						panic(err)
-					}
+					// (*receivingMessage).Delete(messageId)
 					fmt.Printf(
 						"Message #%d Hole at: %d\n",
 						messageId,
