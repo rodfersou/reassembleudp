@@ -3,6 +3,7 @@ pkgs.mkShell {
     name = "go-shell";
     packages = [
         (python311.withPackages(ps: with ps; [
+            supervisor
             pymongo
             pytest
         ]))
