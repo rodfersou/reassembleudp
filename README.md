@@ -42,6 +42,27 @@ Upon startup, the application establishes connections to a UDP socket and MongoD
 
 To process messages, an additional goroutine is responsible for reassembling the original message and checksumming it. On average, the application achieves over 70% success in this process.
 
+```
++---------------------+           +---------------------+
+|      UDP Socket     |           |      MongoDB        |
+|                     |           |                     |
+|   +--------------+  |           |   +-------------+   |
+|   | Goroutine 1  |  |           |   | Fragments   |   |
+|   +--------------+  |           |   | Collection  |   |
+|   +--------------+  |           |   +-------------+   |
+|   | Goroutine 2  |  |           |   +-------------+   |
+|   +--------------+  |           |   | Messages    |   |
+|   +--------------+  |           |   | Collection  |   |
+|   | Goroutine 3  |  |           |   +-------------+   |
+|   +--------------+  |           +---------------------+
+|   +--------------+  |
+|   | Goroutine 4  |  |
+|   +--------------+  |
++---------------------+
+   |               |
+   +---------------+
+```
+
 ### Limitations
 Understanding the task requirements, especially regarding fault tolerance, posed challenges.
 
