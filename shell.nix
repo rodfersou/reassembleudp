@@ -27,5 +27,6 @@ pkgs.mkShell {
         export PATH="$GOPATH/bin:$PATH"
 
         go mod download
+        [ ! -f .env ] && cp docs/dotenv.example .env
     '';
 }
