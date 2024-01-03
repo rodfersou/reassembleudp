@@ -8,4 +8,5 @@ printf "${LIGHT_PURPLE}\$ "
 echo $COMMAND
 echo
 printf $NO_COLOR
-$COMMAND
+
+nix-shell -p mongodb --run "$COMMAND"

@@ -3,13 +3,11 @@ pkgs.mkShell {
     name = "go-shell";
     packages = [
         (python311.withPackages(ps: with ps; [
-            supervisor
             pymongo
             pytest
         ]))
         go_1_20
-        nodejs-19_x
-        mongodb-6_0
+        nodejs-18_x
         lazygit
         ripgrep
         tree

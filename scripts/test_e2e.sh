@@ -8,4 +8,4 @@ printf "${LIGHT_PURPLE}\$ "
 echo $COMMAND
 echo
 printf $NO_COLOR
-$COMMAND
+direnv exec $PWD $COMMAND

@@ -1,28 +1,7 @@
 ## Initial Setup
 
-1. **Install nix:**
-   Follow the instructions for your operating system [here](https://nixos.org/download.html).
-
-2. **Install direnv:**
-    ```bash
-    nix-env -i direnv
-    ```
-
-3. **Configure direnv:**
-    Add the following line to your `~/.zshrc`:
-    ```bash
-    eval "$(direnv hook zsh)"
-    ```
-
-4. **Copy .env example configuration:**
-    ```bash
-    cp docs/dotenv.example .env
-    ```
-
-5. **Allow direnv to open the shell in the project:**
-    ```bash
-    direnv allow
-    ```
+1. **Install docker:**
+   Follow the instructions for your operating system [here](https://docs.docker.com/engine/install/).
 
 ## App Design
 
@@ -78,29 +57,19 @@ I opted to keep it working in 1 run to get an average of +70% success of message
 
 ## How to Run
 
-1. **Start MongoDB:**
+1. **Run the app with Docker:**
     ```bash
-    ./scripts/start_mongodb.sh
-    ```
-
-2. **Start the reassembleudp:**
-    ```bash
-    ./scripts/run_reassembleudp.sh
-    ```
-
-3. **Start UDP emitter:**
-    ```bash
-    ./scripts/run_emitter.sh
+    ./scripts/docker_run.sh
     ```
 
 ## How to Run Tests
 
 1. **Run unit tests:**
     ```bash
-    ./scripts/test_unit.sh
+    ./scripts/docker_test_unit.sh
     ```
 
 2. **Run end-to-end tests:**
     ```bash
-    ./scripts/test_e2e.sh
+    ./scripts/docker_test_e2e.sh
     ```
