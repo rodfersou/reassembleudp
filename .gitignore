@@ -2,6 +2,5 @@
 .mypy_cache/
 .pytest_cache/
 __pycache__/
-inbox/
 .env
 reassembleudp
