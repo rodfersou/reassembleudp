@@ -48,7 +48,6 @@ func ReassembleMessageWorker(
 				options.Find().SetSort(
 					bson.D{
 						{"message_id", 1},
-						{"offset", 1},
 					},
 				),
 			)

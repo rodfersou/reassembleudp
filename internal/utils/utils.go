@@ -15,7 +15,7 @@ func ValidateMessage(fragments []models.Fragment) []int {
 		return []int{0}
 	}
 
-	// Create a map for easy lookup of offsets
+	// Create a map for easy lookup of offsets and deduplicate
 	mapOffset := make(map[int]models.Fragment)
 	for _, item := range fragments {
 		mapOffset[item.Offset] = item
@@ -48,8 +48,22 @@ func ValidateMessage(fragments []models.Fragment) []int {
 }
 
 func ReassembleMessage(fragments []models.Fragment) []byte {
+	if len(fragments) == 0 {
+		return []byte{}
+	}
+	// Create a map for easy lookup of offsets and deduplicate
+	mapOffset := make(map[int]models.Fragment)
+	for _, item := range fragments {
+		mapOffset[item.Offset] = item
+	}
+
+	// Map is unsorted
+	keys := maps.Keys(mapOffset)
+	sort.Ints(keys[:])
+
 	message := make([]byte, 0)
-	for _, fragment := range fragments {
+	for _, key := range keys {
+		fragment := mapOffset[key]
 		// Convert array of int back to array of byte
 		data := make([]byte, fragment.DataSize)
 		for i, n := range fragment.Data {

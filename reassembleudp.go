@@ -69,9 +69,7 @@ func getMongoCollection() (
 	indexModel = mongo.IndexModel{
 		Keys: bson.D{
 			{"message_id", 1},
-			{"offset", 1},
 		},
-		Options: options.Index().SetUnique(true),
 	}
 	_, err = coll_fragments.Indexes().CreateOne(ctx, indexModel)
 	if err != nil {
