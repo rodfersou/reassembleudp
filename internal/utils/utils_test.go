@@ -52,20 +52,20 @@ func TestReassembleMessage(t *testing.T) {
 		Offset:   0,
 		DataSize: 3,
 		Eof:      0,
-		Data:     []int{0, 1, 2},
 	}
+	p1.SaveData([]byte{0, 1, 2})
 	p2 := models.Fragment{
 		Offset:   3,
 		DataSize: 2,
 		Eof:      0,
-		Data:     []int{3, 4},
 	}
+	p2.SaveData([]byte{3, 4})
 	p3 := models.Fragment{
 		Offset:   5,
 		DataSize: 3,
 		Eof:      1,
-		Data:     []int{5, 6, 7},
 	}
+	p3.SaveData([]byte{5, 6, 7})
 	fragments := []models.Fragment{p1, p2, p3}
 	message := ReassembleMessage(fragments)
 	assert.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7}, message)

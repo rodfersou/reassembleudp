@@ -30,6 +30,7 @@ func ReadUDPWorker(
 		if err != nil {
 			panic(err)
 		}
+
 		fragment := models.CreateFragment(buf)
 		fragments <- fragment
 	}

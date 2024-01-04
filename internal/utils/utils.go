@@ -52,7 +52,7 @@ func ReassembleMessage(fragments []models.Fragment) []byte {
 	for _, fragment := range fragments {
 		// Convert array of int back to array of byte
 		data := make([]byte, fragment.DataSize)
-		for i, n := range fragment.Data {
+		for i, n := range fragment.LoadData() {
 			data[i] = byte(n)
 		}
 		message = append(message, data[:]...)
