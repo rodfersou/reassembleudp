@@ -6,15 +6,15 @@ pkgs.mkShell {
             pymongo
             pytest
         ]))
-        go_1_20
-        nodejs-18_x
-        lazygit
-        ripgrep
-        tree
-        pre-commit
         delve
         entr
+        go_1_20
+        lazygit
+        nodejs-18_x
+        pre-commit
+        ripgrep
         tmux
+        tree
     ];
 
     shellHook = ''

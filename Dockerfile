@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:22.04
+# FROM ubuntu:22.04
+FROM mongo
 
 ENV PATH /nix/var/nix/profiles/default/bin:$PATH
 
@@ -9,6 +10,13 @@ RUN <<DOCKER_BEFORE      bash                                                   
  && <<DOCKER_AFTER       bash
 
 # DOCKER BEFORE
+    # BASE UTILS
+    apt update -y
+    apt install -y \
+        curl       \
+        direnv     \
+        gnupg
+
     # DIRENV HOOK
     echo 'eval "\$(direnv hook bash)"' >> ~/.bashrc
     mkdir -p ~/.config/direnv
@@ -48,12 +56,6 @@ CONFIG_DIRENVRC
 CONFIG_DIRENV_TOML
 
 # DOCKER AFTER
-    # BASE UTILS
-    apt update -y
-    apt install -y \
-        direnv     \
-        curl
-
     # NIX
     curl --proto '=https'                           \
          --tlsv1.2                                  \
