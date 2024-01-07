@@ -12,7 +12,8 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
-const batch_size = 4000
+const batch_size = 1000
+const queue_size = 10000
 const buffer_size = 512
 
 func ReadUDPWorker(
@@ -22,7 +23,7 @@ func ReadUDPWorker(
 	coll_fragments *mongo.Collection,
 	conn net.PacketConn,
 ) {
-	fragments := make(chan *models.Fragment, batch_size)
+	fragments := make(chan *models.Fragment, queue_size)
 	go bulkInsertFragment(id, ctx, coll_messages, coll_fragments, fragments)
 	buf := make([]byte, buffer_size)
 	for {
@@ -43,7 +44,7 @@ func bulkInsertFragment(
 	fragments <-chan *models.Fragment,
 ) {
 	message_updated_at := make(map[int]bool)
-	fragment_batch := make([]mongo.WriteModel, batch_size)
+	fragment_batch := make([]mongo.WriteModel, queue_size)
 	full := make(chan bool)
 	done := make(chan bool)
 	ticker := time.NewTicker(5 * time.Second)

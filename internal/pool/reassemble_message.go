@@ -83,13 +83,13 @@ func ReassembleMessageWorker(
 						message.MessageId,
 						holes[0],
 					)
-					for _, hole := range holes {
-						fmt.Printf(
-							"Message #%d Hole at: %d\n",
-							message.MessageId,
-							hole,
-						)
-					}
+					// for _, hole := range holes {
+					//  fmt.Printf(
+					//      "Message #%d Hole at: %d\n",
+					//      message.MessageId,
+					//      hole,
+					//  )
+					// }
 				}
 			}
 			if status != models.InProgress {
