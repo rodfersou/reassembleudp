@@ -9,6 +9,13 @@ RUN <<DOCKER_BEFORE      bash                                                   
  && <<DOCKER_AFTER       bash
 
 # DOCKER BEFORE
+    # BASE UTILS
+    apt update -y
+    apt install -y \
+        curl       \
+        direnv     \
+        gnupg
+
     # DIRENV HOOK
     echo 'eval "\$(direnv hook bash)"' >> ~/.bashrc
     mkdir -p ~/.config/direnv
@@ -48,12 +55,6 @@ CONFIG_DIRENVRC
 CONFIG_DIRENV_TOML
 
 # DOCKER AFTER
-    # BASE UTILS
-    apt update -y
-    apt install -y \
-        direnv     \
-        curl
-
     # NIX
     curl --proto '=https'                           \
          --tlsv1.2                                  \
