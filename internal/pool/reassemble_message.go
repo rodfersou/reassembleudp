@@ -2,108 +2,47 @@ package pool
 
 import (
 	"context"
-	"fmt"
-	"time"
+	// "fmt"
+	// "time"
 
-	"go.mongodb.org/mongo-driver/bson"
+	amqp "github.com/rabbitmq/amqp091-go"
+	// "go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	// "go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/rodfersou/reassembleudp/internal/models"
-	"github.com/rodfersou/reassembleudp/internal/utils"
+	// "github.com/rodfersou/reassembleudp/internal/utils"
 )
 
 func ReassembleMessageWorker(
 	ctx context.Context,
 	coll_messages *mongo.Collection,
 	coll_fragments *mongo.Collection,
+	amqp_ctx context.Context,
+	q amqp.Queue,
+	ch *amqp.Channel,
 ) {
-	for {
-		cursor, err := coll_messages.Find(
-			ctx,
-			bson.M{
-				"status": models.InProgress,
-			},
-			options.Find().SetSort(
-				bson.D{
-					{"updated_at", 1},
-					{"_id", 1},
-				},
-			),
-		)
-		if err != nil {
-			panic(err)
-		}
-		var messages []models.Message
-		if err = cursor.All(ctx, &messages); err != nil {
-			panic(err)
-		}
-		for _, message := range messages {
-			filter := bson.M{
-				"message_id": message.MessageId,
-			}
-			cursor, err := coll_fragments.Find(
-				ctx,
-				filter,
-				options.Find().SetSort(
-					bson.D{
-						{"message_id", 1},
-						{"offset", 1},
-					},
-				),
-			)
-			if err != nil {
-				panic(err)
-			}
-			var fragments []models.Fragment
-			if err = cursor.All(ctx, &fragments); err != nil {
-				panic(err)
-			}
-			if len(fragments) == 0 {
-				continue
-			}
+	messages := make(map[int]*models.Message)
 
-			holes := utils.ValidateMessage(fragments)
-			status := models.InProgress
-			if len(holes) == 0 {
-				status = models.Valid
-				data := utils.ReassembleMessage(fragments)
-				checksum := utils.HashMessage(data)
-				fmt.Printf(
-					"Message #%d length: %d sha256:%s\n",
-					message.MessageId,
-					len(data),
-					checksum,
-				)
-			} else {
-				if message.UpdatedAt.Unix() < time.Now().Add(-30*time.Second).Unix() {
-					status = models.Invalid
-					fmt.Printf(
-						"Message #%d Hole at: %d\n",
-						message.MessageId,
-						holes[0],
-					)
-					// for _, hole := range holes {
-					//  fmt.Printf(
-					//      "Message #%d Hole at: %d\n",
-					//      message.MessageId,
-					//      hole,
-					//  )
-					// }
-				}
-			}
-			if status != models.InProgress {
-				_, err := coll_messages.UpdateOne(
-					ctx,
-					bson.M{"_id": message.MessageId},
-					bson.M{"$set": bson.M{
-						"status": status,
-					}},
-				)
-				if err != nil {
-					panic(err)
-				}
-			}
+	msgs, err := ch.Consume(
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		false,  // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
+	)
+	if err != nil {
+		panic(err)
+	}
+	for d := range msgs {
+		fragment := models.CreateFragment(d.Body)
+		message, ok := messages[fragment.MessageId]
+		if !ok {
+			messages[fragment.MessageId] = models.CreateMessage(fragment)
+			message = messages[fragment.MessageId]
 		}
+		message.AddFragment(fragment)
 	}
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"net"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -18,13 +20,24 @@ func main() {
 		panic("No .env file found")
 	}
 
-	ctx, coll_messages, coll_fragments, disconnect := getMongoCollection()
-	defer disconnect()
-
 	conn, disconnect := getUDPConnection()
 	defer disconnect()
 
-	pool.CreatePool(ctx, coll_messages, coll_fragments, conn)
+	ctx, coll_messages, coll_fragments, disconnect := getMongoCollection()
+	defer disconnect()
+
+	amqp_ctx, q, ch, disconnect := getQueue()
+	defer disconnect()
+
+	pool.CreatePool(
+		ctx,
+		coll_messages,
+		coll_fragments,
+		conn,
+		amqp_ctx,
+		q,
+		ch,
+	)
 }
 
 func getUDPConnection() (net.PacketConn, func()) {
@@ -82,5 +95,40 @@ func getMongoCollection() (
 		if err := client.Disconnect(ctx); err != nil {
 			panic(err)
 		}
+	}
+}
+
+func getQueue() (
+	context.Context,
+	amqp.Queue,
+	*amqp.Channel,
+	func(),
+) {
+	uri := os.Getenv("RABBITMQ_URI")
+	conn, err := amqp.Dial(uri)
+	if err != nil {
+		panic(err)
+	}
+	ch, err := conn.Channel()
+	if err != nil {
+		panic(err)
+	}
+	q, err := ch.QueueDeclare(
+		"reassembleudp", // name
+		false,           // durable
+		false,           // delete when unused
+		false,           // exclusive
+		false,           // no-wait
+		nil,             // arguments
+	)
+	if err != nil {
+		panic(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+	return ctx, q, ch, func() {
+		conn.Close()
+		ch.Close()
+		cancel()
 	}
 }

@@ -1,4 +1,5 @@
 MONGO_URI=mongodb://0.0.0.0:27017
+RABBITMQ_URI=amqp://guest:guest@0.0.0.0:5672/
 PROTO=udp
 IP=0.0.0.0
 PORT=6789

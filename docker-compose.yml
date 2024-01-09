@@ -3,18 +3,23 @@ version: '3'
 services:
     mongodb:
         image: mongo
-        ports:
-            - 27017:27017
+        network_mode: "host"
+    rabbitmq:
+        image: rabbitmq:3-management
+        network_mode: "host"
     app:
         image: reassembleudp
         build: .
+        network_mode: "host"
         volumes:
             - .:/app
             - nix:/nix
         depends_on:
             - mongodb
+            - rabbitmq
         environment:
-            - MONGO_URI=mongodb://mongodb:27017
+            - MONGO_URI=mongodb://0.0.0.0:27017
+            - RABBITMQ_URI=amqp://guest:guest@0.0.0.0:5672/
             - PROTO=udp
             - IP=0.0.0.0
             - PORT=6789
