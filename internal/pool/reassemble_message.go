@@ -38,11 +38,11 @@ func ReassembleMessageWorker(
 	}
 	for d := range msgs {
 		fragment := models.CreateFragment(d.Body)
-		message, ok := messages[fragment.MessageId]
+		_, ok := messages[fragment.MessageId]
 		if !ok {
 			messages[fragment.MessageId] = models.CreateMessage(fragment)
-			message = messages[fragment.MessageId]
 		}
+		message := messages[fragment.MessageId]
 		message.AddFragment(fragment)
 	}
 }

@@ -5,12 +5,12 @@ import (
 )
 
 type Fragment struct {
-	MessageId int   `bson:"message_id" json:"message_id"`
-	Offset    int   `bson:"offset"     json:"offset"`
-	DataSize  int   `bson:"data_size"  json:"data_size"`
-	Eof       int   `bson:"eof"        json:"eof"`
-	Flags     int   `bson:"flags"      json:"flags"`
-	Data      []int `bson:"data"       json:"data"`
+	MessageId int    `bson:"message_id" json:"message_id"`
+	Offset    int    `bson:"offset"     json:"offset"`
+	DataSize  int    `bson:"data_size"  json:"data_size"`
+	Eof       int    `bson:"eof"        json:"eof"`
+	Flags     int    `bson:"flags"      json:"flags"`
+	Data      []byte `bson:"data"       json:"data"`
 }
 
 func CreateFragment(buf []byte) *Fragment {
@@ -28,13 +28,8 @@ func CreateFragment(buf []byte) *Fragment {
 		fragment.Eof = 0
 	}
 
-	// Convert Data []byte to []int for easy lookup at DB
-	fragment.Data = []int{}
 	if len(buf) >= 12+fragment.DataSize {
-		fragment.Data = make([]int, fragment.DataSize)
-		for i, n := range buf[12 : 12+fragment.DataSize] {
-			fragment.Data[i] = int(n)
-		}
+		fragment.Data = buf[12 : 12+fragment.DataSize]
 	}
 
 	return &fragment

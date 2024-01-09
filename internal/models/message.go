@@ -139,12 +139,7 @@ func ReassembleMessage(fragments map[int]*Fragment) []byte {
 	data := make([]byte, 0)
 	for _, key := range keys {
 		fragment := fragments[key]
-		// Convert array of int back to array of byte
-		data := make([]byte, fragment.DataSize)
-		for i, n := range fragment.Data {
-			data[i] = byte(n)
-		}
-		data = append(data, data[:]...)
+		data = append(data, fragment.Data[:]...)
 	}
 	return data
 }
