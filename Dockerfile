@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:22.04
+# FROM ubuntu:22.04
+FROM mongo
 
 ENV PATH /nix/var/nix/profiles/default/bin:$PATH
 

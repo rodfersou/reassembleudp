@@ -9,4 +9,4 @@ echo $COMMAND
 echo
 printf $NO_COLOR
 
-nix-shell -p mongodb --run "$COMMAND"
+$COMMAND

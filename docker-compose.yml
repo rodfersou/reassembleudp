@@ -14,7 +14,6 @@ services:
             - PROTO=udp
             - IP=0.0.0.0
             - PORT=6789
-            - NIXPKGS_ALLOW_UNFREE=1
         restart: no
         stdin_open: true
         tty: true

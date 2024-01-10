@@ -56,10 +56,6 @@ If you run twice the emitter, will get duplicate errors.  My initial tought abou
 I opted to keep it working in 1 run to get an average of +70% success of message reassemble.
 
 ### Known issues
-Docker execution is taking long time to bootstrap since it's compiling mongodb.
-
-After multiple try and error discovered that was getting way better results with a DB version compiled in my machine, and that's what this version is doing.
-
 Another discovery is that MongoDB create indexes 4 times faster if run in foreground instead of in normal background execution, according to [this article](https://medium.com/@KarakasP/time-difference-between-background-and-foreground-index-creation-in-mongodb-b29ca3689fdc)
 
 ## How to Run
