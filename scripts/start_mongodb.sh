@@ -2,7 +2,7 @@
 LIGHT_PURPLE="\033[1;35m"
 NO_COLOR="\033[0m"
 
-COMMAND="mongod --dbpath .cache/mongo"
+COMMAND="mongod --dbpath .cache/mongo --bind_ip 0.0.0.0"
 
 printf "${LIGHT_PURPLE}\$ "
 echo $COMMAND

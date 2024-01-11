@@ -25,10 +25,6 @@ func CreatePool(
 			ReadUDPWorker(i, ctx, coll_messages, coll_fragments, conn)
 		}()
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ReassembleMessageWorker(ctx, coll_messages, coll_fragments)
-	}()
+	ReassembleMessageWorker(ctx, coll_messages, coll_fragments)
 	wg.Wait()
 }

@@ -39,6 +39,13 @@ func ReassembleMessageWorker(
 			panic(err)
 		}
 		for _, message := range messages {
+			cursor.Decode(&message)
+			if message.Status != models.InProgress {
+				continue
+			}
+			if message.Status != models.InProgress {
+				continue
+			}
 			filter := bson.M{
 				"message_id": message.MessageId,
 			}
@@ -58,9 +65,6 @@ func ReassembleMessageWorker(
 			var fragments []models.Fragment
 			if err = cursor.All(ctx, &fragments); err != nil {
 				panic(err)
-			}
-			if len(fragments) == 0 {
-				continue
 			}
 
 			holes := utils.ValidateMessage(fragments)
@@ -93,6 +97,7 @@ func ReassembleMessageWorker(
 				}
 			}
 			if status != models.InProgress {
+				message.Status = status
 				_, err := coll_messages.UpdateOne(
 					ctx,
 					bson.M{"_id": message.MessageId},
@@ -104,6 +109,7 @@ func ReassembleMessageWorker(
 					panic(err)
 				}
 			}
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/rodfersou/reassembleudp/internal/models"
 )
 
-const batch_size = 1000
-const queue_size = 10000
+const batch_size = 10000
+const queue_size = 100000
 const buffer_size = 512
 
 func ReadUDPWorker(
@@ -47,7 +47,7 @@ func bulkInsertFragment(
 	fragment_batch := make([]mongo.WriteModel, queue_size)
 	full := make(chan bool)
 	done := make(chan bool)
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	i := 0
 

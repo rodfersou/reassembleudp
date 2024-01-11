@@ -73,3 +73,7 @@ CONFIG_DIRENV_TOML
     apt-get autoremove -y
     rm -rf /var/lib/apt/lists/*
 DOCKER_AFTER
+
+ENTRYPOINT []
+EXPOSE 27017
+EXPOSE 6789/udp
